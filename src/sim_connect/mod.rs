@@ -2,7 +2,10 @@ use self::sim_events::SystemEvent;
 
 use super::PROGRAM_NAME;
 use anyhow::{anyhow, Result as AnyhowResult};
-use std::ffi::{c_void, CStr, CString};
+use std::{
+    borrow::BorrowMut,
+    ffi::{c_void, CStr, CString},
+};
 
 mod bindings;
 pub mod sim_events;
@@ -92,45 +95,19 @@ impl SimConnect {
     }
 
     pub fn check_events(&self) -> AnyhowResult<()> {
-        extern "C" fn callback(
-            data: *mut bindings::SIMCONNECT_RECV,
-            cb_data: bindings::DWORD,
-            context: *mut c_void,
-        ) {
-            let data_id = unsafe { *data }.dwID as i32;
-            match data_id {
-                bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_OPEN => {
-                    let event = unsafe { *(data as *const bindings::SIMCONNECT_RECV_OPEN) };
-                    let major_version = event.dwApplicationBuildMajor;
-                    let minor_version = event.dwApplicationBuildMinor;
+        let mut data = std::ptr::null_mut();
 
-                    let application_name = String::from_utf8(
-                        unsafe {
-                            std::mem::transmute::<[i8; 256], [u8; 256]>(event.szApplicationName)
-                        }
-                        .to_vec(),
-                    )
-                    .unwrap();
+        let mut cb_data: bindings::DWORD = 0;
 
-                    println!(
-                        "Connection Opened to SimConnect: {application_name}@{0}.{1}",
-                        major_version, minor_version
-                    );
-                }
-                bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_EVENT => {
-                    let event = unsafe { *(data as *mut bindings::SIMCONNECT_RECV_EVENT) };
-                }
-                id => println!("unknown id: {id}"),
-            }
+        let hr = unsafe {
+            bindings::SimConnect_GetNextDispatch(self.handle.as_ptr(), &mut data, &mut cb_data)
+        };
+
+        println!("Callback data size: {cb_data}");
+
+        if hr != 0 {
+            return Ok(());
         }
-
-        check_hr!(unsafe {
-            bindings::SimConnect_CallDispatch(
-                self.handle.as_ptr(),
-                Some(callback),
-                std::ptr::null_mut(),
-            )
-        });
 
         Ok(())
     }

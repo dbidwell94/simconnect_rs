@@ -6,14 +6,9 @@ use sim_connect::{SimConnect, sim_events::SystemEvent};
 
 pub const PROGRAM_NAME: &'static str = "MSFS_EconoWorld";
 
-struct TestDataStruct<'a> {
-    vec: &'a [u8],
-}
-
 #[tokio::main]
 async fn main() -> AnyhowResult<()> {
     let sim = SimConnect::open(CString::new(PROGRAM_NAME).unwrap().as_c_str())?;
-    sim.register_struct::<TestDataStruct>(CString::new("Test_Data_Struct").unwrap().as_c_str())?;
     sim.subscribe_to_system_event(SystemEvent::FourSec)?;
 
     loop {
