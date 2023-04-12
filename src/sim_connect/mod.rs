@@ -1,18 +1,23 @@
-use self::sim_events::SystemEvent;
+use self::{sim_events::SystemEvent, sim_units::SimUnit, sim_vars::SimVar};
 
 use super::PROGRAM_NAME;
 use anyhow::{anyhow, Result as AnyhowResult};
 use std::{
-    borrow::BorrowMut,
+    collections::HashMap,
     ffi::{c_void, CStr, CString},
 };
 
 mod bindings;
 pub mod sim_events;
+pub mod sim_units;
 pub mod sim_vars;
 
 pub trait ToSimConnect {
     fn sc_string(&self) -> CString;
+}
+
+pub trait ToSimConnectStruct {
+    fn get_fields(&self) -> HashMap<SimVar, Box<dyn SimUnit>>;
 }
 
 macro_rules! check_hr {
@@ -27,8 +32,14 @@ macro_rules! check_hr {
     };
 }
 
+#[derive(Default)]
+struct Test {
+    item: u32,
+}
+
 pub struct SimConnect {
     handle: std::ptr::NonNull<c_void>,
+    type_map: HashMap<CString, u32>,
 }
 
 impl SimConnect {
@@ -55,29 +66,34 @@ impl SimConnect {
         Ok(Self {
             handle: std::ptr::NonNull::new(handle)
                 .ok_or_else(|| anyhow!("pointer expected to not be null"))?,
+            type_map: HashMap::new(),
         })
     }
 
-    pub fn register_struct<T: Sized>(&self, data_name: &CStr) -> AnyhowResult<()> {
+    pub fn register_struct<T: Sized + Default + ToSimConnectStruct>(&mut self) -> AnyhowResult<()> {
         let data_size = std::mem::size_of::<T>();
-        let data_name = Self::get_client_data_name(data_name)?;
-        println!("Data Size Requested: {data_size}");
+        let raw_name = CString::new(std::any::type_name::<T>()).unwrap();
+        let data_name = Self::get_client_data_name(&raw_name)?;
 
-        let hr = unsafe {
-            bindings::SimConnect_MapClientDataNameToID(self.handle.as_ptr(), data_name.as_ptr(), 1)
-        };
+        let new_data_id = self.type_map.len() as u32;
 
-        check_hr!(hr);
+        if self.type_map.contains_key(&data_name) {
+            return Ok(());
+        }
 
-        check_hr!(unsafe {
-            bindings::SimConnect_CreateClientData(
-                self.handle.as_ptr(),
-                1,
-                data_size.try_into().unwrap(),
-                bindings::SIMCONNECT_CLIENT_DATA_REQUEST_FLAG_CHANGED,
-            )
-        });
+        println!(
+            "Data Size Requested for {0}: {data_size}",
+            raw_name.to_str().unwrap()
+        );
+
+        self.type_map.insert(data_name, new_data_id);
+
         Ok(())
+    }
+
+    pub fn request_data<T: Sized + Default>(&self) -> AnyhowResult<T> {
+        let obj: T = T::default();
+        Ok(obj)
     }
 
     pub fn subscribe_to_system_event(&self, event: SystemEvent) -> AnyhowResult<()> {

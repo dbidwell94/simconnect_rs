@@ -16,11 +16,13 @@ fn main() {
         .allowlist_function("SimConnect_CallDispatch")
         .allowlist_function("SimConnect_SubscribeToSystemEvent")
         .allowlist_function("SimConnect_UnsubscribeFromSystemEvent")
+        .allowlist_function("SimConnect_RequestDataOnSimObject")
         .allowlist_function("SimConnect_GetNextDispatch")
         .allowlist_type("SIMCONNECT_REC")
         .allowlist_type("SIMCONNECT_RECV_.*")
         .allowlist_var("SIMCONNECT_CLIENT_DATA_REQUEST_FLAG_CHANGED")
         .allowlist_var("SIMCONNECT_RECV_ID_.*")
+        .allowlist_var("SIMCONNECT_OBJECT_ID_USER")
         .generate()
         .expect("Unable to generate bindings");
 
