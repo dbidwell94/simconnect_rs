@@ -8,6 +8,9 @@ pub enum SimVar {
     IndicatedAlt,
     PlaneLat,
     PlaneLong,
+    AirspeedIndicated,
+    AirspeedMach,
+    AirspeedTrue,
 }
 
 impl std::fmt::Display for SimVar {
@@ -17,6 +20,9 @@ impl std::fmt::Display for SimVar {
             SimVar::IndicatedAlt => write!(f, "Indicated Altitude"),
             SimVar::PlaneLat => write!(f, "Plane Latitude"),
             SimVar::PlaneLong => write!(f, "Plane Longitude"),
+            SimVar::AirspeedIndicated => write!(f, "Airspeed Indicated"),
+            SimVar::AirspeedMach => write!(f, "Airspeed Mach"),
+            SimVar::AirspeedTrue => write!(f, "Airspeed True"),
         }
     }
 }

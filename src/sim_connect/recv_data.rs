@@ -1,0 +1,127 @@
+use anyhow::Result as AnyhowResult;
+use semver::Version;
+use std::mem::transmute;
+use std::ptr::NonNull;
+
+use super::bindings;
+
+trait FromPtr {
+    fn from_pointer(data: NonNull<bindings::SIMCONNECT_RECV>) -> AnyhowResult<Self>
+    where
+        Self: Sized;
+}
+
+/* #region RecV Enum */
+pub enum RecvDataEvent {
+    Null,
+    Open(RecVOpen),
+    Event,
+    Data(RecvSimData),
+}
+
+impl RecvDataEvent {
+    pub fn from_pointer(data: NonNull<bindings::SIMCONNECT_RECV>) -> AnyhowResult<Self> {
+        let data_id = unsafe { *data.as_ptr() }.dwID as i32;
+        Ok(match data_id {
+            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_OPEN => {
+                Self::Open(RecVOpen::from_pointer(data)?)
+            }
+            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_EVENT => Self::Event,
+            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_SIMOBJECT_DATA => {
+                Self::Data(RecvSimData::from_pointer(data)?)
+            }
+            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_SIMOBJECT_DATA_BYTYPE => {
+                Self::Data(RecvSimData::from_pointer(data)?)
+            }
+            _ => Self::Null,
+        })
+    }
+}
+/* #endregion */
+
+/* #region RecvOpen */
+
+pub struct RecVOpen {
+    pub application_name: String,
+    pub sim_connect_version: Version,
+    pub sim_connect_build_version: Version,
+    pub application_version: Version,
+    pub application_build_version: Version,
+}
+
+impl FromPtr for RecVOpen {
+    fn from_pointer(data: NonNull<bindings::SIMCONNECT_RECV>) -> AnyhowResult<Self> {
+        let raw_pointer: *mut bindings::SIMCONNECT_RECV_OPEN = unsafe { transmute(data.as_ptr()) };
+
+        let open_data = unsafe { *raw_pointer };
+        let name = String::from_utf8(
+            unsafe { transmute::<[i8; 256], [u8; 256]>(open_data.szApplicationName) }.to_vec(),
+        )?;
+
+        let sim_connect_version = Version::new(
+            open_data.dwSimConnectVersionMajor as u64,
+            open_data.dwSimConnectVersionMinor as u64,
+            0,
+        );
+
+        let sim_connect_build_version = Version::new(
+            open_data.dwSimConnectBuildMajor as u64,
+            open_data.dwSimConnectBuildMinor as u64,
+            0,
+        );
+
+        let application_version = Version::new(
+            open_data.dwApplicationVersionMajor as u64,
+            open_data.dwApplicationVersionMinor as u64,
+            0,
+        );
+
+        let application_build_version = Version::new(
+            open_data.dwApplicationBuildMajor as u64,
+            open_data.dwApplicationBuildMinor as u64,
+            0,
+        );
+
+        Ok(Self {
+            application_name: name,
+            sim_connect_version,
+            application_version,
+            application_build_version,
+            sim_connect_build_version,
+        })
+    }
+}
+/* #endregion */
+
+/* #region RecvSimData */
+pub struct RecvSimData {
+    data_pointer: NonNull<bindings::SIMCONNECT_RECV_SIMOBJECT_DATA>,
+}
+
+impl RecvSimData {
+    pub fn to_struct<T: Copy + Clone>(self) -> AnyhowResult<T> {
+        let ptr = unsafe { self.data_pointer.as_ref() };
+
+        let data = std::ptr::addr_of!(ptr.dwData) as *mut T;
+
+        let data = unsafe { *data };
+
+        return Ok(data);
+    }
+}
+
+impl FromPtr for RecvSimData {
+    fn from_pointer(data: NonNull<bindings::SIMCONNECT_RECV>) -> AnyhowResult<Self>
+    where
+        Self: Sized,
+    {
+        let raw_ptr: *mut bindings::SIMCONNECT_RECV_SIMOBJECT_DATA =
+            unsafe { transmute(data.as_ptr()) };
+
+        let ptr =
+            NonNull::new(raw_ptr).ok_or_else(|| anyhow::anyhow!("Unexpected empty pointer"))?;
+        Ok(Self { data_pointer: ptr })
+    }
+}
+
+/* #endregion */
