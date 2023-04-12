@@ -14,7 +14,12 @@ fn main() {
         .allowlist_function("SimConnect_CreateClientData")
         .allowlist_function("SimConnect_MapClientDataNameToID")
         .allowlist_function("SimConnect_CallDispatch")
+        .allowlist_function("SimConnect_SubscribeToSystemEvent")
+        .allowlist_function("SimConnect_UnsubscribeFromSystemEvent")
+        .allowlist_type("SIMCONNECT_REC")
+        .allowlist_type("SIMCONNECT_RECV_.*")
         .allowlist_var("SIMCONNECT_CLIENT_DATA_REQUEST_FLAG_CHANGED")
+        .allowlist_var("SIMCONNECT_RECV_ID_.*")
         .generate()
         .expect("Unable to generate bindings");
 
