@@ -1,10 +1,11 @@
-use std::ffi::CString;
+use std::{ffi::CString, hash::Hash};
 
 use super::ToSimConnect;
 
 pub trait SimUnit: ToSimConnect {}
 
 /* #region Length */
+#[derive(Hash, PartialEq, Eq, Debug)]
 pub enum Length {
     Meter,
     Millimeter,
@@ -47,6 +48,7 @@ impl SimUnit for Length {}
 /* #endregion */
 
 /* #region Area  */
+#[derive(Hash, PartialEq, Eq, Debug)]
 pub enum Area {
     SqIn,
     SqFt,
@@ -83,6 +85,7 @@ impl SimUnit for Area {}
 /* #endregion */
 
 /* #region Volume */
+#[derive(Hash, PartialEq, Eq, Debug)]
 pub enum Volume {
     Cin,
     Cft,
@@ -123,6 +126,7 @@ impl SimUnit for Volume {}
 /* #endregion */
 
 /* #region Temp */
+#[derive(Hash, PartialEq, Eq, Debug)]
 pub enum Temp {
     Kel,
     Rank,
@@ -151,6 +155,7 @@ impl SimUnit for Temp {}
 /* #endregion */
 
 /* #region Angle */
+#[derive(Hash, PartialEq, Eq, Debug)]
 pub enum Angle {
     Rad,
     Round,
@@ -179,6 +184,7 @@ impl SimUnit for Angle {}
 /* #endregion */
 
 /* #region GPS */
+#[derive(Hash, PartialEq, Eq, Debug)]
 pub enum GPS {
     DegLat,
     DegLon,
@@ -205,6 +211,7 @@ impl SimUnit for GPS {}
 /* #endregion */
 
 /* #region AngularVelocity */
+#[derive(Hash, PartialEq, Eq, Debug)]
 pub enum AngularVelocity {
     RPS,
     RPM,
@@ -231,6 +238,7 @@ impl SimUnit for AngularVelocity {}
 /* #endregion */
 
 /* #region Speed */
+#[derive(Hash, PartialEq, Eq, Debug)]
 pub enum Speed {
     MPS,
     MPM,
@@ -264,6 +272,50 @@ impl ToSimConnect for Speed {
 }
 
 impl SimUnit for Speed {}
+/* #endregion */
+
+/* #region Pressure */
+#[derive(Hash, PartialEq, Eq, Debug)]
+pub enum Pressure {
+    Pa,
+    Kpa,
+    MmHg,
+    CmHg,
+    InHg,
+    Bar,
+    Atm,
+    Psi,
+    BoostPsi,
+    BoostInHg,
+    BoostCmHg,
+}
+
+impl std::fmt::Display for Pressure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Pressure::Pa => write!(f, "pascal"),
+            Pressure::Kpa => write!(f, "kilopascal"),
+            Pressure::MmHg => write!(f, "millimeter of mercury"),
+            Pressure::CmHg => write!(f, "centimeter of mercury"),
+            Pressure::InHg => write!(f, "inch of mercury"),
+            Pressure::Bar => write!(f, "bar"),
+            Pressure::Atm => write!(f, "atmosphere"),
+            Pressure::Psi => write!(f, "psi"),
+            Pressure::BoostPsi => write!(f, "boost psi"),
+            Pressure::BoostInHg => write!(f, "boost inHg"),
+            Pressure::BoostCmHg => write!(f, "boost cmHg"),
+        }
+    }
+}
+
+impl ToSimConnect for Pressure {
+    fn sc_string(&self) -> CString {
+        CString::new(format!("{self}")).unwrap()
+    }
+}
+
+impl SimUnit for Pressure {}
+
 /* #endregion */
 
 pub struct FuelLevels {

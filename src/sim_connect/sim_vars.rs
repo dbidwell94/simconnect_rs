@@ -1,5 +1,8 @@
+use std::ffi::CString;
+
 use super::ToSimConnect;
 
+#[derive(Hash, PartialEq, Eq, Debug)]
 pub enum SimVar {
     KohlsmanHG,
     IndicatedAlt,
@@ -19,7 +22,7 @@ impl std::fmt::Display for SimVar {
 }
 
 impl ToSimConnect for SimVar {
-    fn sc_string(&self) -> std::ffi::CString {
-        todo!()
+    fn sc_string(&self) -> CString {
+        CString::new(format!("{self}")).unwrap()
     }
 }

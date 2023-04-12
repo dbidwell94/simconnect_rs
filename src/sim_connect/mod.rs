@@ -1,4 +1,6 @@
-use self::{sim_events::SystemEvent, sim_units::SimUnit, sim_vars::SimVar};
+use self::{
+    sim_events::SystemEvent, sim_units::SimUnit, sim_var_types::SimVarType, sim_vars::SimVar,
+};
 
 use super::PROGRAM_NAME;
 use anyhow::{anyhow, Result as AnyhowResult};
@@ -10,14 +12,22 @@ use std::{
 mod bindings;
 pub mod sim_events;
 pub mod sim_units;
+pub mod sim_var_types;
 pub mod sim_vars;
+
+pub struct SimConnectDatum {
+    pub id: u32,
+    pub sim_var: SimVar,
+    pub sim_unit: Box<dyn SimUnit>,
+    pub data_type: SimVarType,
+}
 
 pub trait ToSimConnect {
     fn sc_string(&self) -> CString;
 }
 
 pub trait ToSimConnectStruct {
-    fn get_fields(&self) -> HashMap<SimVar, Box<dyn SimUnit>>;
+    fn get_fields() -> Vec<SimConnectDatum>;
 }
 
 macro_rules! check_hr {
@@ -70,8 +80,7 @@ impl SimConnect {
         })
     }
 
-    pub fn register_struct<T: Sized + Default + ToSimConnectStruct>(&mut self) -> AnyhowResult<()> {
-        let data_size = std::mem::size_of::<T>();
+    pub fn register_struct<T: Default + ToSimConnectStruct>(&mut self) -> AnyhowResult<()> {
         let raw_name = CString::new(std::any::type_name::<T>()).unwrap();
         let data_name = Self::get_client_data_name(&raw_name)?;
 
@@ -81,10 +90,21 @@ impl SimConnect {
             return Ok(());
         }
 
-        println!(
-            "Data Size Requested for {0}: {data_size}",
-            raw_name.to_str().unwrap()
-        );
+        let fields = T::get_fields();
+
+        for field in fields {
+            check_hr!(unsafe {
+                bindings::SimConnect_AddToDataDefinition(
+                    self.handle.as_ptr(),
+                    new_data_id,
+                    field.sim_var.sc_string().as_ptr(),
+                    field.sim_unit.sc_string().as_ptr(),
+                    field.data_type as i32,
+                    0.0,
+                    field.id,
+                )
+            });
+        }
 
         self.type_map.insert(data_name, new_data_id);
 
