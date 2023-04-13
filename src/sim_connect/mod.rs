@@ -3,18 +3,57 @@ use self::{
 };
 
 use anyhow::{anyhow, Result as AnyhowResult};
+pub use sim_connect_macros;
 use std::{
     collections::HashMap,
     ffi::{c_void, CStr, CString},
 };
 
+#[allow(dead_code)]
 mod bindings;
 pub mod recv_data;
 pub mod sim_events;
 pub mod sim_units;
 pub mod sim_var_types;
 pub mod sim_vars;
-mod macros;
+
+/// # Description
+/// Auto-implement `StructToSimConnect`.
+///
+/// # Notes
+///
+/// - Required enums must be in scope when specifying them in the `#[datum(..)]` attribute
+/// - Id's cannot be re-used in the same struct. This will create undefined behaviour
+///
+/// # Example
+///
+/// ```
+///     use sim_connect_rs::{
+///         sim_units::{Length, Speed},
+///         sim_var_types::SimVarType,
+///         sim_vars::SimVar,
+///         StructToSimConnect,
+///     };
+///
+///     #[derive(StructToSimConnect)]
+///     struct TestStruct {
+///         #[datum(
+///             sim_var = "SimVar::AirspeedTrue",
+///             sim_unit = "Speed::KNT",
+///             data_type = "SimVarType::I32"
+///         )]
+///         airspeed: i32,
+///         #[datum(
+///              sim_var = "SimVar::IndicatedAlt",
+///              sim_unit = "Length::Foot",
+///              data_type = "SimVarType::F32"
+///         )]
+///         altitude: f32,
+///}
+/// ```
+pub trait StructToSimConnect {
+    fn get_fields() -> Vec<SimConnectDatum>;
+}
 
 use recv_data::RecvDataEvent;
 
@@ -27,16 +66,6 @@ pub struct SimConnectDatum {
 
 pub trait ToSimConnect {
     fn sc_string(&self) -> CString;
-}
-
-pub trait ToSimConnectStruct {
-    fn get_fields() -> Vec<SimConnectDatum>;
-}
-
-pub trait SimConnectToStruct {
-    fn create_instance<'a>(bytes: &'a [u32]) -> AnyhowResult<Self>
-    where
-        Self: Sized;
 }
 
 macro_rules! check_hr {
@@ -88,7 +117,7 @@ impl SimConnect {
     }
 
     /// Registers the struct's field definitions with SimConnect
-    pub fn register_struct<T: ToSimConnectStruct>(&mut self) -> AnyhowResult<()> {
+    pub fn register_struct<T: StructToSimConnect>(&mut self) -> AnyhowResult<()> {
         let raw_name = CString::new(std::any::type_name::<T>()).unwrap();
         println!(
             "registering {0} with SimConnect",
@@ -128,7 +157,7 @@ impl SimConnect {
     ///
     /// This function will return an error if the struct has not yet been registered
     /// with SimConnect
-    pub fn request_data_on_self_object<T: ToSimConnectStruct>(&self) -> AnyhowResult<()> {
+    pub fn request_data_on_self_object<T: StructToSimConnect>(&self) -> AnyhowResult<()> {
         let type_name = CString::new(std::any::type_name::<T>()).unwrap();
         let data_name = self.get_client_data_name(&type_name)?;
         let object_id = self.type_map.get(&data_name).ok_or_else(|| {

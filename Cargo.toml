@@ -5,13 +5,13 @@ edition = "2021"
 
 [lib]
 
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = { version = "1.0.70" }
 num_enum = { version = "0.6.0" }
 semver = { version = "1.0.17" }
+sim_connect_macros = { path = "./sim_connect_macros" }
 
 [build-dependencies]
 bindgen = { version = "0.64.0" }

@@ -1,7 +1,11 @@
+use num_enum::FromPrimitive;
+
 use super::bindings;
 
+#[derive(Debug, FromPrimitive)]
 #[repr(i32)]
 pub enum SimVarType {
+    #[default]
     Invalid = bindings::SIMCONNECT_DATATYPE_SIMCONNECT_DATATYPE_INVALID,
     I32 = bindings::SIMCONNECT_DATATYPE_SIMCONNECT_DATATYPE_INT32,
     I64 = bindings::SIMCONNECT_DATATYPE_SIMCONNECT_DATATYPE_INT64,
