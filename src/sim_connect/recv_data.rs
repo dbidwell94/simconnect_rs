@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result as AnyhowResult};
 use semver::Version;
 use std::mem::transmute;
 use std::ptr::NonNull;
+use std::sync::{Arc, Mutex};
 
 use super::bindings;
 
@@ -102,12 +103,13 @@ impl FromPtr for RecVOpen {
 
 /* #region RecvSimData */
 pub struct RecvSimData {
-    data_pointer: NonNull<bindings::SIMCONNECT_RECV_SIMOBJECT_DATA>,
+    data_pointer: Arc<Mutex<NonNull<bindings::SIMCONNECT_RECV_SIMOBJECT_DATA>>>,
 }
 
 impl RecvSimData {
     pub fn to_struct<T: Copy + Clone>(self) -> AnyhowResult<T> {
-        let ptr = unsafe { self.data_pointer.as_ref() };
+        let locked = self.data_pointer.lock().unwrap();
+        let ptr = unsafe { locked.as_ref() };
 
         let data = NonNull::new(std::ptr::addr_of!(ptr.dwData) as *mut T)
             .ok_or_else(|| anyhow!("Pointer not expected to be null"))?;
@@ -128,8 +130,12 @@ impl FromPtr for RecvSimData {
 
         let ptr =
             NonNull::new(raw_ptr).ok_or_else(|| anyhow::anyhow!("Unexpected empty pointer"))?;
-        Ok(Self { data_pointer: ptr })
+        Ok(Self {
+            data_pointer: Arc::new(Mutex::new(ptr)),
+        })
     }
 }
+
+unsafe impl Send for RecvSimData {}
 
 /* #endregion */

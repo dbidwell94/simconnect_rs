@@ -1,5 +1,6 @@
 use self::{
-    sim_events::SystemEvent, sim_units::SimUnit, sim_var_types::SimVarType, sim_vars::SimVar,
+    recv_data::RecvSimData, sim_events::SystemEvent, sim_units::SimUnit, sim_var_types::SimVarType,
+    sim_vars::SimVar,
 };
 
 use anyhow::{anyhow, Result as AnyhowResult};
@@ -8,6 +9,8 @@ pub use sim_connect_macros;
 use std::{
     collections::HashMap,
     ffi::{c_void, CStr, CString},
+    sync::{Arc, Mutex, RwLock},
+    thread::{self, JoinHandle},
 };
 
 #[allow(dead_code)]
@@ -81,20 +84,42 @@ macro_rules! check_hr {
     };
 }
 
+#[derive(Default)]
+struct EventMap {
+    data_event_map: HashMap<u32, RecvDataEvent>,
+}
+
 pub struct SimConnect {
     handle: std::ptr::NonNull<c_void>,
-    type_map: HashMap<CString, u32>,
+    type_map: HashMap<String, u32>,
     program_name: String,
+    data_event_map: Arc<Mutex<EventMap>>,
+    should_quit: Arc<RwLock<bool>>,
+    listen_handle: Option<JoinHandle<()>>,
 }
 
 impl SimConnect {
-    fn get_client_data_name(&self, name: &CStr) -> AnyhowResult<CString> {
-        let string = name.to_str()?;
+    fn get_client_data_name(&self, name: &str) -> String {
+        format!("{0}{name}", self.program_name)
+    }
 
-        Ok(CString::new(format!("{0}{string}", self.program_name))?)
+    async fn begin_listen_for_events(
+        event_map: Arc<Mutex<EventMap>>,
+        should_quit: Arc<RwLock<bool>>,
+    ) -> AnyhowResult<()> {
+        loop {}
+
+        Ok(())
+    }
+
+    fn get_struct_name<T: StructToSimConnect>(&self) -> String {
+        let struct_name = std::any::type_name::<T>();
+        return self.get_client_data_name(struct_name);
     }
 
     /// Opens a new connection to SimConnect using the program name defined
+    /// Program will then automatically start listening for events, caching the latest
+    /// of all the unique events. Events can be retrieved by requesting the latest.
     pub fn open(program_name: &CStr) -> AnyhowResult<Self> {
         let mut handle = std::ptr::null_mut() as bindings::HANDLE;
 
@@ -109,22 +134,32 @@ impl SimConnect {
             )
         });
 
+        let data_event_map: Arc<Mutex<EventMap>> = Default::default();
+
+        let should_quit = Arc::new(RwLock::new(false));
+
+        let cloned_event_map = data_event_map.clone();
+        let cloned_should_quit = should_quit.clone();
+
+        let listen_handle = thread::spawn(move || {
+            let evt_map = cloned_event_map;
+            let should_quit = cloned_should_quit;
+        });
+
         Ok(Self {
             handle: std::ptr::NonNull::new(handle)
                 .ok_or_else(|| anyhow!("pointer expected to not be null"))?,
             type_map: HashMap::new(),
             program_name: program_name.to_str().unwrap().to_owned(),
+            data_event_map,
+            should_quit,
+            listen_handle: Some(listen_handle),
         })
     }
 
     /// Registers the struct's field definitions with SimConnect
     pub fn register_struct<T: StructToSimConnect>(&mut self) -> AnyhowResult<()> {
-        let raw_name = CString::new(std::any::type_name::<T>()).unwrap();
-        println!(
-            "registering {0} with SimConnect",
-            raw_name.to_str().unwrap()
-        );
-        let data_name = self.get_client_data_name(&raw_name)?;
+        let data_name = self.get_struct_name::<T>();
 
         let new_data_id = self.type_map.len() as u32;
 
@@ -159,14 +194,12 @@ impl SimConnect {
     /// This function will return an error if the struct has not yet been registered
     /// with SimConnect
     pub fn request_data_on_self_object<T: StructToSimConnect>(&self) -> AnyhowResult<()> {
-        let type_name = CString::new(std::any::type_name::<T>()).unwrap();
-        let data_name = self.get_client_data_name(&type_name)?;
-        let object_id = self.type_map.get(&data_name).ok_or_else(|| {
-            anyhow!(
-                "{0} has not yet been registered",
-                type_name.to_str().unwrap()
-            )
-        })?;
+        let type_name = std::any::type_name::<T>();
+        let data_name = self.get_client_data_name(&type_name);
+        let object_id = self
+            .type_map
+            .get(&data_name)
+            .ok_or_else(|| anyhow!("{type_name} has not yet been registered"))?;
 
         check_hr!(unsafe {
             bindings::SimConnect_RequestDataOnSimObjectType(
@@ -184,7 +217,6 @@ impl SimConnect {
     /// Requests a subscription to a system event. Events can be checked by using the
     /// `check_events` function
     pub fn subscribe_to_system_event(&self, event: SystemEvent) -> AnyhowResult<()> {
-        println!("Requesting subscription to event: {event}");
         let event_id = event as u32;
         check_hr!(unsafe {
             bindings::SimConnect_SubscribeToSystemEvent(
@@ -199,7 +231,7 @@ impl SimConnect {
 
     /// Checks for new system events. There is no guarantee that an event is waiting to be
     /// retrieved from SimConnect. If nothing is available, returns `None`.
-    pub fn check_events(&self) -> AnyhowResult<Option<RecvDataEvent>> {
+    fn check_events(&self) -> AnyhowResult<Option<RecvDataEvent>> {
         let mut data = std::ptr::null_mut();
 
         let mut cb_data: bindings::DWORD = 0;
@@ -217,10 +249,28 @@ impl SimConnect {
         }
         return Ok(None);
     }
+
+    pub async fn request_data<T: StructToSimConnect>(&mut self) -> AnyhowResult<T> {
+        let data_name = std::any::type_name::<T>();
+
+        // register the struct (no change if already registered)
+        self.register_struct::<T>()?;
+        self.request_data_on_self_object::<T>()?;
+
+        loop {}
+
+        todo!()
+    }
 }
 
 impl Drop for SimConnect {
     fn drop(&mut self) {
+        let mut should_quit = self.should_quit.write().unwrap();
+        *should_quit = true;
+        if let Some(join_handle) = self.listen_handle.take() {
+            join_handle.join();
+        }
+
         unsafe {
             bindings::SimConnect_Close(self.handle.as_ptr());
         }
