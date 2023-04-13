@@ -1,6 +1,5 @@
 use self::{
-    recv_data::RecvSimData, sim_events::SystemEvent, sim_units::SimUnit, sim_var_types::SimVarType,
-    sim_vars::SimVar,
+    sim_events::SystemEvent, sim_units::SimUnit, sim_var_types::SimVarType, sim_vars::SimVar,
 };
 
 use anyhow::{anyhow, Result as AnyhowResult};
@@ -9,7 +8,8 @@ pub use sim_connect_macros;
 use std::{
     collections::HashMap,
     ffi::{c_void, CStr, CString},
-    sync::{Arc, Mutex, RwLock},
+    ptr::NonNull,
+    sync::{Arc, Mutex, MutexGuard, RwLock},
     thread::{self, JoinHandle},
 };
 
@@ -84,30 +84,51 @@ macro_rules! check_hr {
     };
 }
 
+struct ThreadSafeHandle(Arc<Mutex<std::ptr::NonNull<c_void>>>);
+
+impl Clone for ThreadSafeHandle {
+    fn clone(&self) -> Self {
+        let cloned_arc = self.0.clone();
+        Self(cloned_arc)
+    }
+}
+
+unsafe impl Send for ThreadSafeHandle {}
+
 #[derive(Default)]
 struct EventMap {
     data_event_map: HashMap<u32, RecvDataEvent>,
 }
 
 pub struct SimConnect {
-    handle: std::ptr::NonNull<c_void>,
+    handle: ThreadSafeHandle,
     type_map: HashMap<String, u32>,
     program_name: String,
     data_event_map: Arc<Mutex<EventMap>>,
     should_quit: Arc<RwLock<bool>>,
-    listen_handle: Option<JoinHandle<()>>,
+    listen_handle: Option<JoinHandle<AnyhowResult<()>>>,
 }
 
 impl SimConnect {
+    fn get_handle_lock(&self) -> AnyhowResult<MutexGuard<NonNull<c_void>>> {
+        Ok(self
+            .handle
+            .0
+            .lock()
+            .or_else(|_| Err(anyhow!("SimConnect handle has been poisoned")))?)
+    }
+
     fn get_client_data_name(&self, name: &str) -> String {
         format!("{0}{name}", self.program_name)
     }
 
-    async fn begin_listen_for_events(
+    fn begin_listen_for_events(
         event_map: Arc<Mutex<EventMap>>,
         should_quit: Arc<RwLock<bool>>,
     ) -> AnyhowResult<()> {
-        loop {}
+        loop {
+            let hr = unsafe {};
+        }
 
         Ok(())
     }
@@ -134,21 +155,30 @@ impl SimConnect {
             )
         });
 
+        let handle = ThreadSafeHandle(Arc::new(Mutex::new(
+            std::ptr::NonNull::new(handle)
+                .ok_or_else(|| anyhow!("pointer expected to not be null"))?,
+        )));
+
         let data_event_map: Arc<Mutex<EventMap>> = Default::default();
 
         let should_quit = Arc::new(RwLock::new(false));
 
         let cloned_event_map = data_event_map.clone();
         let cloned_should_quit = should_quit.clone();
+        let cloned_handle = handle.clone();
 
-        let listen_handle = thread::spawn(move || {
+        let listen_handle: JoinHandle<AnyhowResult<()>> = thread::spawn(move || {
             let evt_map = cloned_event_map;
             let should_quit = cloned_should_quit;
+            let handle = cloned_handle;
+
+            Self::begin_listen_for_events(evt_map, should_quit)?;
+            Ok(())
         });
 
         Ok(Self {
-            handle: std::ptr::NonNull::new(handle)
-                .ok_or_else(|| anyhow!("pointer expected to not be null"))?,
+            handle,
             type_map: HashMap::new(),
             program_name: program_name.to_str().unwrap().to_owned(),
             data_event_map,
@@ -169,18 +199,23 @@ impl SimConnect {
 
         let fields = T::get_fields();
 
-        for field in fields {
-            check_hr!(unsafe {
-                bindings::SimConnect_AddToDataDefinition(
-                    self.handle.as_ptr(),
-                    new_data_id,
-                    field.sim_var.sc_string().as_ptr(),
-                    field.sim_unit.sc_string().as_ptr(),
-                    field.data_type as i32,
-                    0.0,
-                    field.id,
-                )
-            });
+        {
+            let handle_lock = self.get_handle_lock()?;
+            let handle = *handle_lock;
+
+            for field in fields {
+                check_hr!(unsafe {
+                    bindings::SimConnect_AddToDataDefinition(
+                        handle.as_ptr(),
+                        new_data_id,
+                        field.sim_var.sc_string().as_ptr(),
+                        field.sim_unit.sc_string().as_ptr(),
+                        field.data_type as i32,
+                        0.0,
+                        field.id,
+                    )
+                });
+            }
         }
 
         self.type_map.insert(data_name, new_data_id);
@@ -201,15 +236,20 @@ impl SimConnect {
             .get(&data_name)
             .ok_or_else(|| anyhow!("{type_name} has not yet been registered"))?;
 
-        check_hr!(unsafe {
-            bindings::SimConnect_RequestDataOnSimObjectType(
-                self.handle.as_ptr(),
-                0,
-                object_id.clone(),
-                0,
-                bindings::SIMCONNECT_SIMOBJECT_TYPE_SIMCONNECT_SIMOBJECT_TYPE_USER,
-            )
-        });
+        {
+            let handle_lock = self.get_handle_lock()?;
+            let handle = *handle_lock;
+
+            check_hr!(unsafe {
+                bindings::SimConnect_RequestDataOnSimObjectType(
+                    handle.as_ptr(),
+                    0,
+                    object_id.clone(),
+                    0,
+                    bindings::SIMCONNECT_SIMOBJECT_TYPE_SIMCONNECT_SIMOBJECT_TYPE_USER,
+                )
+            });
+        }
 
         Ok(())
     }
@@ -218,13 +258,18 @@ impl SimConnect {
     /// `check_events` function
     pub fn subscribe_to_system_event(&self, event: SystemEvent) -> AnyhowResult<()> {
         let event_id = event as u32;
-        check_hr!(unsafe {
-            bindings::SimConnect_SubscribeToSystemEvent(
-                self.handle.as_ptr(),
-                event_id,
-                event.sc_string().as_ptr(),
-            )
-        });
+
+        {
+            let handle = self.get_handle_lock()?;
+
+            check_hr!(unsafe {
+                bindings::SimConnect_SubscribeToSystemEvent(
+                    handle.as_ptr(),
+                    event_id,
+                    event.sc_string().as_ptr(),
+                )
+            });
+        }
 
         Ok(())
     }
@@ -235,10 +280,14 @@ impl SimConnect {
         let mut data = std::ptr::null_mut();
 
         let mut cb_data: bindings::DWORD = 0;
+        let hr: i32;
+        {
+            let handle = self.get_handle_lock()?;
 
-        let hr = unsafe {
-            bindings::SimConnect_GetNextDispatch(self.handle.as_ptr(), &mut data, &mut cb_data)
-        };
+            hr = unsafe {
+                bindings::SimConnect_GetNextDispatch(handle.as_ptr(), &mut data, &mut cb_data)
+            };
+        }
 
         if hr == 0 && cb_data > 0 {
             let ptr = std::ptr::NonNull::new(data)
@@ -250,14 +299,49 @@ impl SimConnect {
         return Ok(None);
     }
 
-    pub async fn request_data<T: StructToSimConnect>(&mut self) -> AnyhowResult<T> {
-        let data_name = std::any::type_name::<T>();
+    /// Check weather or not SimConnect has data on a specified struct
+    pub fn has_data<T: StructToSimConnect>(&self) -> AnyhowResult<bool> {
+        let data_name = self.get_struct_name::<T>();
+        let evt_map_lock = self
+            .data_event_map
+            .lock()
+            .or_else(|_| Err(anyhow!("The data event map lock has been poisoned")))?;
 
-        // register the struct (no change if already registered)
+        let data_id = self.type_map.get(&data_name);
+
+        if let Some(data_id) = data_id {
+            return Ok(evt_map_lock.data_event_map.contains_key(data_id));
+        }
+        Ok(false)
+    }
+
+    /// Gets data on a sim object. Calls `register_struct` if it hasn't already been called.
+    /// If it hasn't been called, chances are this function will return None as SimConnect needs
+    /// time to process the data. It is recommend that you check for data using the `has_data` call
+    pub fn get_data<T: StructToSimConnect>(&mut self) -> AnyhowResult<Option<T>> {
         self.register_struct::<T>()?;
-        self.request_data_on_self_object::<T>()?;
+        let data_name = self.get_struct_name::<T>();
+        let data_id = self.type_map.get(&data_name);
+        if let None = data_id {
+            return Ok(None);
+        };
+        let data_id = data_id.unwrap();
 
-        loop {}
+        let found_data: Option<RecvDataEvent>;
+
+        // Lock the data and remove lock as quick as possible
+        {
+            let mut data_map_lock = self
+                .data_event_map
+                .lock()
+                .or_else(|_| Err(anyhow!("Data map lock has been poisoned")))?;
+
+            found_data = data_map_lock.data_event_map.remove(data_id);
+        }
+        if let None = found_data {
+            return Ok(None);
+        }
+        let found_data = found_data.unwrap();
 
         todo!()
     }
@@ -268,11 +352,12 @@ impl Drop for SimConnect {
         let mut should_quit = self.should_quit.write().unwrap();
         *should_quit = true;
         if let Some(join_handle) = self.listen_handle.take() {
-            join_handle.join();
+            let _ = join_handle.join();
         }
+        let handle = self.get_handle_lock().unwrap();
 
         unsafe {
-            bindings::SimConnect_Close(self.handle.as_ptr());
+            bindings::SimConnect_Close(handle.as_ptr());
         }
     }
 }
