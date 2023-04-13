@@ -2,7 +2,6 @@ use self::{
     sim_events::SystemEvent, sim_units::SimUnit, sim_var_types::SimVarType, sim_vars::SimVar,
 };
 
-use super::PROGRAM_NAME;
 use anyhow::{anyhow, Result as AnyhowResult};
 use std::{
     collections::HashMap,
@@ -55,13 +54,14 @@ macro_rules! check_hr {
 pub struct SimConnect {
     handle: std::ptr::NonNull<c_void>,
     type_map: HashMap<CString, u32>,
+    program_name: String,
 }
 
 impl SimConnect {
-    fn get_client_data_name(name: &CStr) -> AnyhowResult<CString> {
+    fn get_client_data_name(&self, name: &CStr) -> AnyhowResult<CString> {
         let string = name.to_str()?;
 
-        Ok(CString::new(format!("{PROGRAM_NAME}{string}"))?)
+        Ok(CString::new(format!("{0}{string}", self.program_name))?)
     }
 
     /// Opens a new connection to SimConnect using the program name defined
@@ -83,6 +83,7 @@ impl SimConnect {
             handle: std::ptr::NonNull::new(handle)
                 .ok_or_else(|| anyhow!("pointer expected to not be null"))?,
             type_map: HashMap::new(),
+            program_name: program_name.to_str().unwrap().to_owned(),
         })
     }
 
@@ -93,7 +94,7 @@ impl SimConnect {
             "registering {0} with SimConnect",
             raw_name.to_str().unwrap()
         );
-        let data_name = Self::get_client_data_name(&raw_name)?;
+        let data_name = self.get_client_data_name(&raw_name)?;
 
         let new_data_id = self.type_map.len() as u32;
 
@@ -129,7 +130,7 @@ impl SimConnect {
     /// with SimConnect
     pub fn request_data_on_self_object<T: ToSimConnectStruct>(&self) -> AnyhowResult<()> {
         let type_name = CString::new(std::any::type_name::<T>()).unwrap();
-        let data_name = Self::get_client_data_name(&type_name)?;
+        let data_name = self.get_client_data_name(&type_name)?;
         let object_id = self.type_map.get(&data_name).ok_or_else(|| {
             anyhow!(
                 "{0} has not yet been registered",

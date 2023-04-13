@@ -1,4 +1,4 @@
-use anyhow::Result as AnyhowResult;
+use anyhow::{anyhow, Result as AnyhowResult};
 use semver::Version;
 use std::mem::transmute;
 use std::ptr::NonNull;
@@ -102,9 +102,10 @@ impl RecvSimData {
     pub fn to_struct<T: Copy + Clone>(self) -> AnyhowResult<T> {
         let ptr = unsafe { self.data_pointer.as_ref() };
 
-        let data = std::ptr::addr_of!(ptr.dwData) as *mut T;
+        let data = NonNull::new(std::ptr::addr_of!(ptr.dwData) as *mut T)
+            .ok_or_else(|| anyhow!("Pointer not expected to be null"))?;
 
-        let data = unsafe { *data };
+        let data = unsafe { data.as_ref().clone() };
 
         return Ok(data);
     }
