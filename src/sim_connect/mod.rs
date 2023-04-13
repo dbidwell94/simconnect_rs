@@ -6,7 +6,6 @@ use anyhow::{anyhow, Result as AnyhowResult};
 use std::{
     collections::HashMap,
     ffi::{c_void, CStr, CString},
-    hash::Hash,
 };
 
 mod bindings;
@@ -15,6 +14,7 @@ pub mod sim_events;
 pub mod sim_units;
 pub mod sim_var_types;
 pub mod sim_vars;
+mod macros;
 
 use recv_data::RecvDataEvent;
 

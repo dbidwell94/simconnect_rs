@@ -17,6 +17,9 @@ pub enum RecvDataEvent {
     Open(RecVOpen),
     Event,
     Data(RecvSimData),
+    Quit,
+    Exception,
+    AirportList,
 }
 
 impl RecvDataEvent {
@@ -33,6 +36,10 @@ impl RecvDataEvent {
             bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_SIMOBJECT_DATA_BYTYPE => {
                 Self::Data(RecvSimData::from_pointer(data)?)
             }
+            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_NULL => Self::Null,
+            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_EXCEPTION => Self::Exception,
+            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_QUIT => Self::Quit,
+            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_AIRPORT_LIST => Self::AirportList,
             _ => Self::Null,
         })
     }
