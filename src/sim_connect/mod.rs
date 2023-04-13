@@ -3,6 +3,7 @@ use self::{
 };
 
 use anyhow::{anyhow, Result as AnyhowResult};
+#[cfg(feature = "derive")]
 pub use sim_connect_macros;
 use std::{
     collections::HashMap,
