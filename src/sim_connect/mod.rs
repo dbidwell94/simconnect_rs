@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result as AnyhowResult};
 pub use sim_connect_macros;
 use std::{
     collections::HashMap,
-    ffi::{c_void, CStr, CString},
+    ffi::{c_void, CString},
     ptr::NonNull,
     sync::{
         mpsc::{channel, Receiver, Sender},
@@ -100,11 +100,6 @@ impl Clone for ThreadSafeHandle {
 }
 
 unsafe impl Send for ThreadSafeHandle {}
-
-#[derive(Default)]
-struct EventMap {
-    data_event_map: HashMap<u32, Receiver<RecvSimData>>,
-}
 
 pub struct SimConnect {
     handle: ThreadSafeHandle,
