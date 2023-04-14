@@ -13,6 +13,7 @@ trait FromPtr {
 }
 
 /* #region RecV Enum */
+#[derive(Debug)]
 pub enum RecvDataEvent {
     Null,
     Open(RecVOpen),
@@ -49,6 +50,7 @@ impl RecvDataEvent {
 
 /* #region RecvOpen */
 
+#[derive(Debug)]
 pub struct RecVOpen {
     pub application_name: String,
     pub sim_connect_version: Version,
@@ -102,8 +104,10 @@ impl FromPtr for RecVOpen {
 /* #endregion */
 
 /* #region RecvSimData */
+#[derive(Debug)]
 pub struct RecvSimData {
     data_pointer: Arc<Mutex<NonNull<bindings::SIMCONNECT_RECV_SIMOBJECT_DATA>>>,
+    data_id: u32
 }
 
 impl RecvSimData {
@@ -118,6 +122,10 @@ impl RecvSimData {
 
         return Ok(data);
     }
+
+    pub fn get_id(&self) -> u32 {
+        self.data_id
+    }
 }
 
 impl FromPtr for RecvSimData {
@@ -128,10 +136,13 @@ impl FromPtr for RecvSimData {
         let raw_ptr: *mut bindings::SIMCONNECT_RECV_SIMOBJECT_DATA =
             unsafe { transmute(data.as_ptr()) };
 
+        let data_id = unsafe {*raw_ptr}.dwDefineID;
+
         let ptr =
             NonNull::new(raw_ptr).ok_or_else(|| anyhow::anyhow!("Unexpected empty pointer"))?;
         Ok(Self {
             data_pointer: Arc::new(Mutex::new(ptr)),
+            data_id
         })
     }
 }
