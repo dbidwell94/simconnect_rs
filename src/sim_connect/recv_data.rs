@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result as AnyhowResult};
 use semver::Version;
 use std::mem::transmute;
 use std::ptr::NonNull;
+use std::sync::{Arc, Mutex};
 
 use super::bindings;
 
@@ -12,6 +13,7 @@ trait FromPtr {
 }
 
 /* #region RecV Enum */
+#[derive(Debug)]
 pub enum RecvDataEvent {
     Null,
     Open(RecVOpen),
@@ -48,6 +50,7 @@ impl RecvDataEvent {
 
 /* #region RecvOpen */
 
+#[derive(Debug)]
 pub struct RecVOpen {
     pub application_name: String,
     pub sim_connect_version: Version,
@@ -101,13 +104,16 @@ impl FromPtr for RecVOpen {
 /* #endregion */
 
 /* #region RecvSimData */
+#[derive(Debug)]
 pub struct RecvSimData {
-    data_pointer: NonNull<bindings::SIMCONNECT_RECV_SIMOBJECT_DATA>,
+    data_pointer: Arc<Mutex<NonNull<bindings::SIMCONNECT_RECV_SIMOBJECT_DATA>>>,
+    data_id: u32
 }
 
 impl RecvSimData {
     pub fn to_struct<T: Copy + Clone>(self) -> AnyhowResult<T> {
-        let ptr = unsafe { self.data_pointer.as_ref() };
+        let locked = self.data_pointer.lock().unwrap();
+        let ptr = unsafe { locked.as_ref() };
 
         let data = NonNull::new(std::ptr::addr_of!(ptr.dwData) as *mut T)
             .ok_or_else(|| anyhow!("Pointer not expected to be null"))?;
@@ -115,6 +121,10 @@ impl RecvSimData {
         let data = unsafe { data.as_ref().clone() };
 
         return Ok(data);
+    }
+
+    pub fn get_id(&self) -> u32 {
+        self.data_id
     }
 }
 
@@ -126,10 +136,17 @@ impl FromPtr for RecvSimData {
         let raw_ptr: *mut bindings::SIMCONNECT_RECV_SIMOBJECT_DATA =
             unsafe { transmute(data.as_ptr()) };
 
+        let data_id = unsafe {*raw_ptr}.dwDefineID;
+
         let ptr =
             NonNull::new(raw_ptr).ok_or_else(|| anyhow::anyhow!("Unexpected empty pointer"))?;
-        Ok(Self { data_pointer: ptr })
+        Ok(Self {
+            data_pointer: Arc::new(Mutex::new(ptr)),
+            data_id
+        })
     }
 }
+
+unsafe impl Send for RecvSimData {}
 
 /* #endregion */
