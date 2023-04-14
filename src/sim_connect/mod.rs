@@ -35,13 +35,18 @@ use recv_data::RecvSimData;
 ///
 /// - Required enums must be in scope when specifying them in the `#[datum(..)]` attribute
 /// - Id's cannot be re-used in the same struct. This will create undefined behaviour
+/// - Your data type will be automatically converted if the data type is supported. Current supported data types are:
+///     - i32
+///     - i64
+///     - f32
+///     - f64
+///     - String
 ///
 /// # Example
 ///
 /// ```
 ///     use sim_connect_rs::{
 ///         sim_units::{Length, Speed},
-///         sim_var_types::SimVarType,
 ///         sim_vars::SimVar,
 ///         StructToSimConnect,
 ///     };
@@ -51,13 +56,11 @@ use recv_data::RecvSimData;
 ///         #[datum(
 ///             sim_var = "SimVar::AirspeedTrue",
 ///             sim_unit = "Speed::KNT",
-///             data_type = "SimVarType::I32"
 ///         )]
 ///         airspeed: i32,
 ///         #[datum(
 ///              sim_var = "SimVar::IndicatedAlt",
 ///              sim_unit = "Length::Foot",
-///              data_type = "SimVarType::F32"
 ///         )]
 ///         altitude: f32,
 ///}
