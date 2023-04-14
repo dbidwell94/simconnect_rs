@@ -370,6 +370,7 @@ impl SimConnect {
         Ok(false)
     }
 
+    #[cfg(feature = "async")]
     /// Gets data on a sim object. Calls `register_struct` if it hasn't already been called.
     /// If it hasn't been called, chances are this function will return None as SimConnect needs
     /// time to process the data. It is recommend that you check for data using the `has_data` call
@@ -401,9 +402,40 @@ impl SimConnect {
         let data = data.unwrap()?;
         Ok(data)
     }
-}
 
-unsafe impl Send for SimConnect {}
+    #[cfg(not(feature = "async"))]
+    /// Gets data on a sim object. Calls `register_struct` if it hasn't already been called.
+    /// If it hasn't been called, chances are this function will return None as SimConnect needs
+    /// time to process the data. It is recommend that you check for data using the `has_data` call
+    pub fn get_latest_data<T: StructToSimConnect + Copy>(&mut self) -> AnyhowResult<T> {
+        self.register_struct::<T>()?;
+        let data_name = self.get_struct_name::<T>();
+        let data_id = self.type_map.get(&data_name);
+        let data_id = data_id.unwrap();
+
+        self.request_data_on_self_object::<T>()?;
+
+        let recv = self
+            .data_event_map
+            .get(data_id)
+            .ok_or_else(|| anyhow!("data_event_map not expected to be empty"))?;
+
+        let mut data = recv.try_iter().map(|d| d.to_struct()).last();
+        if let None = data {
+            data = Some(
+                recv.recv()
+                    .or_else(|_| {
+                        Err(anyhow!(
+                            "Thread has been closed and channel no longer available"
+                        ))
+                    })?
+                    .to_struct(),
+            )
+        }
+        let data = data.unwrap()?;
+        Ok(data)
+    }
+}
 
 impl Drop for SimConnect {
     fn drop(&mut self) {
