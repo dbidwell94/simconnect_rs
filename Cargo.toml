@@ -1,6 +1,6 @@
 [package]
 name = "sim_connect_rs"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 
 [lib]
@@ -16,6 +16,5 @@ anyhow = { version = "1.0.70" }
 num_enum = { version = "0.6.0" }
 semver = { version = "1.0.17" }
 sim_connect_macros = { path = "./sim_connect_macros" }
-
-[build-dependencies]
-bindgen = { version = "0.64.0" }
+sim_connect_bindings = { path = "./sim_connect_bindings" }
+sim_connect_data = { path = "./sim_connect_data" }

@@ -12,3 +12,4 @@ proc_macro = true
 syn = { version = "1.0.91", features = ["full"] }
 quote = { version = "1.0.26" }
 darling = { version = "0.14.4" }
+sim_connect_data = { path = "../sim_connect_data" }

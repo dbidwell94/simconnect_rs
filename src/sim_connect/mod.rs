@@ -1,6 +1,7 @@
 use self::{
     sim_events::SystemEvent, sim_units::SimUnit, sim_var_types::SimVarType, sim_vars::SimVar,
 };
+pub use sim_connect_data::ToSimConnect;
 
 use anyhow::{anyhow, Result as AnyhowResult};
 #[cfg(feature = "derive")]
@@ -17,13 +18,13 @@ use std::{
     time::Duration,
 };
 
-#[allow(dead_code)]
-mod bindings;
-pub mod recv_data;
-pub mod sim_events;
-pub mod sim_units;
-pub mod sim_var_types;
-pub mod sim_vars;
+use sim_connect_bindings::bindings;
+
+pub use sim_connect_data::recv_data;
+pub use sim_connect_data::sim_events;
+pub use sim_connect_data::sim_units;
+pub use sim_connect_data::sim_var_types;
+pub use sim_connect_data::sim_vars;
 
 use recv_data::RecvSimData;
 
@@ -72,10 +73,6 @@ pub struct SimConnectDatum {
     pub sim_var: SimVar,
     pub sim_unit: Box<dyn SimUnit>,
     pub data_type: SimVarType,
-}
-
-pub trait ToSimConnect {
-    fn sc_string(&self) -> CString;
 }
 
 macro_rules! check_hr {

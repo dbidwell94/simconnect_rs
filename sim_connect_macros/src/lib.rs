@@ -7,8 +7,7 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 #[darling(attributes(datum))]
 struct Opts {
     sim_var: syn::Path,
-    sim_unit: syn::Path,
-    data_type: syn::Path,
+    sim_unit: syn::Path
 }
 
 #[proc_macro_derive(StructToSimConnect, attributes(datum))]
@@ -36,22 +35,22 @@ pub fn derive(input: TokenStream) -> TokenStream {
             .sim_unit
     });
     let data_type = fields.iter().map(|field| {
-        Opts::from_field(field)
-            .expect("All fields in a SimConnect struct need to contain a #[datum(..)] attribute")
-            .data_type
+        field.ty.clone()
     });
+
     let id = (0..sim_var.len()).map(|id| id as u32);
 
     quote! {
         impl StructToSimConnect for #ident {
             fn get_fields() -> Vec<sim_connect_rs::SimConnectDatum> {
+                use sim_connect_rs::sim_var_types::IntoSimVarType;
                 vec![
                     #(
                         sim_connect_rs::SimConnectDatum {
                             id: #id,
                             sim_var: #sim_var,
                             sim_unit: Box::new(#sim_unit),
-                            data_type: #data_type
+                            data_type: #data_type::into_sim_var()
                         },
                     )*
                 ]
