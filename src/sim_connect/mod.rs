@@ -403,6 +403,8 @@ impl SimConnect {
     }
 }
 
+unsafe impl Send for SimConnect {}
+
 impl Drop for SimConnect {
     fn drop(&mut self) {
         let mut should_quit = self.should_quit.write().unwrap();
