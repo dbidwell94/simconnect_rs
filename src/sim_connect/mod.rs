@@ -146,7 +146,7 @@ impl SimConnect {
 
             let mut data = std::ptr::null_mut();
 
-            let mut cb_data: bindings::DWORD = 0;
+            let mut cb_data_size: bindings::DWORD = 0;
             let hr: i32;
             // Get data and unlock ASAP
             {
@@ -156,14 +156,22 @@ impl SimConnect {
                     .or_else(|_| Err(anyhow!("SimConnect handle has been poisoned")))?;
 
                 hr = unsafe {
-                    bindings::SimConnect_GetNextDispatch(handle.as_ptr(), &mut data, &mut cb_data)
+                    bindings::SimConnect_GetNextDispatch(
+                        handle.as_ptr(),
+                        &mut data,
+                        &mut cb_data_size,
+                    )
                 };
             }
 
-            if hr == 0 && cb_data > 0 {
+            if hr == 0 && cb_data_size > 0 {
                 let ptr = std::ptr::NonNull::new(data)
                     .ok_or_else(|| anyhow!("Pointer not expected to be null"))?;
                 let data = recv_data::RecvDataEvent::from_pointer(ptr)?;
+
+                if let RecvDataEvent::Open(ref open_event) = data {
+                    println!("{open_event:?}");
+                }
 
                 if let RecvDataEvent::Data(data) = data {
                     let data_id = data.get_id();

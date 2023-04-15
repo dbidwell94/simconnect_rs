@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result as AnyhowResult};
 use semver::Version;
+use std::ffi::{c_char, CStr};
 use std::mem::transmute;
 use std::ptr::NonNull;
 use std::sync::{Arc, Mutex};
@@ -17,11 +18,8 @@ trait FromPtr {
 pub enum RecvDataEvent {
     Null,
     Open(RecVOpen),
-    Event,
     Data(RecvSimData),
     Quit,
-    Exception,
-    AirportList,
 }
 
 impl RecvDataEvent {
@@ -31,7 +29,6 @@ impl RecvDataEvent {
             bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_OPEN => {
                 Self::Open(RecVOpen::from_pointer(data)?)
             }
-            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_EVENT => Self::Event,
             bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_SIMOBJECT_DATA => {
                 Self::Data(RecvSimData::from_pointer(data)?)
             }
@@ -39,9 +36,7 @@ impl RecvDataEvent {
                 Self::Data(RecvSimData::from_pointer(data)?)
             }
             bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_NULL => Self::Null,
-            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_EXCEPTION => Self::Exception,
             bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_QUIT => Self::Quit,
-            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_AIRPORT_LIST => Self::AirportList,
             _ => Self::Null,
         })
     }
@@ -64,9 +59,10 @@ impl FromPtr for RecVOpen {
         let raw_pointer: *mut bindings::SIMCONNECT_RECV_OPEN = unsafe { transmute(data.as_ptr()) };
 
         let open_data = unsafe { *raw_pointer };
-        let name = String::from_utf8(
-            unsafe { transmute::<[i8; 256], [u8; 256]>(open_data.szApplicationName) }.to_vec(),
-        )?;
+
+        let name_ptr = &open_data.szApplicationName as *const c_char;
+        let name_cstr = unsafe { CStr::from_ptr(name_ptr) };
+        let name = name_cstr.to_str()?.to_owned();
 
         let sim_connect_version = Version::new(
             open_data.dwSimConnectVersionMajor as u64,
@@ -107,7 +103,7 @@ impl FromPtr for RecVOpen {
 #[derive(Debug)]
 pub struct RecvSimData {
     data_pointer: Arc<Mutex<NonNull<bindings::SIMCONNECT_RECV_SIMOBJECT_DATA>>>,
-    data_id: u32
+    data_id: u32,
 }
 
 impl RecvSimData {
@@ -136,13 +132,13 @@ impl FromPtr for RecvSimData {
         let raw_ptr: *mut bindings::SIMCONNECT_RECV_SIMOBJECT_DATA =
             unsafe { transmute(data.as_ptr()) };
 
-        let data_id = unsafe {*raw_ptr}.dwDefineID;
+        let data_id = unsafe { *raw_ptr }.dwDefineID;
 
         let ptr =
             NonNull::new(raw_ptr).ok_or_else(|| anyhow::anyhow!("Unexpected empty pointer"))?;
         Ok(Self {
             data_pointer: Arc::new(Mutex::new(ptr)),
-            data_id
+            data_id,
         })
     }
 }
