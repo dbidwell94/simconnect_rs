@@ -7,7 +7,7 @@ const SDK_PATH: &'static str = r"C:\MSFS SDK\SimConnect SDK\lib\static";
 const SDK_PATH: &'static str = r"C:\MSFS SDK\SimConnect SDK\lib";
 
 #[cfg(not(feature = "static_link"))]
-const LINK_LIB_ARGS: &'static str = "dynamic=SimConnect";
+const LINK_LIB_ARGS: &'static str = "dylib=SimConnect";
 #[cfg(feature = "static_link")]
 const LINK_LIB_ARGS: &'static str = "static=SimConnect";
 

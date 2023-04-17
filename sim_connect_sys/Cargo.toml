@@ -7,7 +7,7 @@ license-file = "./LICENSE"
 description = "Rust bindings for SimConnect for use with Microsoft Flight Simulator"
 
 [lib]
-crate-type = ["lib"]
+crate-type = ["dylib"]
 
 links = "SimConnect"
 
