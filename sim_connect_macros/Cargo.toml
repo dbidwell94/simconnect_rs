@@ -2,6 +2,9 @@
 name = "sim_connect_macros"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/dbidwell94/simconnect_rs/tree/master/sim_connect_macros"
+license-file = "./LICENSE"
+description = "Macros for use internally with sim_connect_rs and for use as helpers when using sim_connect_rs"
 
 [lib]
 proc_macro = true
