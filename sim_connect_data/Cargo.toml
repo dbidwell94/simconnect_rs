@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sim_connect_bindings = { path = "../sim_connect_bindings" }
+sim_connect_bindings = { version = "*", path = "../sim_connect_bindings" }
+sim_connect_macros = { version = "*", path = "../sim_connect_macros" }
 num_enum = { version = "0.6.0" }
 anyhow = { version = "1.0.70" }
 semver = { version = "1.0.17" }

@@ -1,13 +1,13 @@
-use darling::FromField;
+use darling::{FromField, FromVariant};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
+use syn::{parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Fields};
 
 #[derive(FromField)]
 #[darling(attributes(datum))]
 struct Opts {
     sim_var: syn::Path,
-    sim_unit: syn::Path
+    sim_unit: syn::Path,
 }
 
 #[proc_macro_derive(StructToSimConnect, attributes(datum))]
@@ -34,9 +34,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
             .expect("All fields in a SimConnect struct need to contain a #[datum(..)] attribute")
             .sim_unit
     });
-    let data_type = fields.iter().map(|field| {
-        field.ty.clone()
-    });
+    let data_type = fields.iter().map(|field| field.ty.clone());
 
     let id = (0..sim_var.len()).map(|id| id as u32);
 
@@ -58,4 +56,66 @@ pub fn derive(input: TokenStream) -> TokenStream {
         }
     }
     .into()
+}
+
+#[derive(FromVariant)]
+#[darling(attributes(string))]
+struct StringOpts {
+    name: String,
+}
+
+#[proc_macro_derive(ToSimConnect, attributes(string))]
+pub fn enum_to_sim_string(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let ident = input.ident;
+
+    let variants = match &input.data {
+        Data::Enum(DataEnum { variants, .. }) => variants,
+        _ => panic!("expected an enum"),
+    };
+
+    let variant_ident = variants.iter().map(|var| {
+        if var.fields.len() > 0 {
+            panic!("Enum should not have any fields");
+        }
+        var.ident.to_owned()
+    });
+
+    let variant_string = variants.iter().map(|var| {
+        let default = var.ident.to_string();
+        let opts = StringOpts::from_variant(var).unwrap_or(StringOpts { name: default });
+        opts.name
+    });
+
+    let to_return = quote! {
+        impl std::string::ToString for #ident {
+            fn to_string(&self) -> String {
+                match self {
+                    # (
+                        Self::#variant_ident => #variant_string.to_owned(),
+                    )*
+                }
+            }
+        }
+
+        impl ToSimConnect for #ident {
+            fn sc_string(&self) -> std::ffi::CString {
+                CString::new(self.to_string()).unwrap()
+            }
+        }
+    };
+
+    to_return.into()
+}
+
+#[proc_macro_derive(SimUnit)]
+pub fn to_sim_unit(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let ident = input.ident;
+
+    let to_return = quote! {
+        impl SimUnit for #ident {}
+    };
+
+    to_return.into()
 }

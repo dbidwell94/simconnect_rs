@@ -1,34 +1,22 @@
+use sim_connect_macros::ToSimConnect;
 use std::ffi::CString;
 
 use super::ToSimConnect;
 
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(Hash, PartialEq, Eq, Debug, ToSimConnect)]
 pub enum SimVar {
+    #[string("Kohlsman Setting hg")]
     KohlsmanHG,
+    #[string("Indicated Altitude")]
     IndicatedAlt,
+    #[string("Plane Latitude")]
     PlaneLat,
+    #[string("Plane Longitude")]
     PlaneLong,
+    #[string("Airspeed Indicated")]
     AirspeedIndicated,
+    #[string("Airspeed Mach")]
     AirspeedMach,
+    #[string("Airspeed True")]
     AirspeedTrue,
-}
-
-impl std::fmt::Display for SimVar {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SimVar::KohlsmanHG => write!(f, "Kohlsman setting hg"),
-            SimVar::IndicatedAlt => write!(f, "Indicated Altitude"),
-            SimVar::PlaneLat => write!(f, "Plane Latitude"),
-            SimVar::PlaneLong => write!(f, "Plane Longitude"),
-            SimVar::AirspeedIndicated => write!(f, "Airspeed Indicated"),
-            SimVar::AirspeedMach => write!(f, "Airspeed Mach"),
-            SimVar::AirspeedTrue => write!(f, "Airspeed True"),
-        }
-    }
-}
-
-impl ToSimConnect for SimVar {
-    fn sc_string(&self) -> CString {
-        CString::new(format!("{self}")).unwrap()
-    }
 }
