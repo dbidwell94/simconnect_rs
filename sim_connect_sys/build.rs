@@ -12,9 +12,11 @@ const LINK_LIB_ARGS: &'static str = "dylib=SimConnect";
 const LINK_LIB_ARGS: &'static str = "static=SimConnect";
 
 fn main() {
+    let sdk_path = std::env::var("SIMCONNECT_SDK").unwrap_or(SDK_PATH.to_owned());
     println!("cargo:rerun-if-changed=wrapper.hpp");
+    println!("cargo:rerun-if-env-changed=SIMCONNECT_SDK");
     println!("cargo:rustc-link-lib={LINK_LIB_ARGS}");
-    println!("cargo:rustc-link-search={}", std::env::var("SIMCONNECT_SDK").unwrap_or(SDK_PATH.to_owned()));
+    println!("cargo:rustc-link-search={sdk_path}");
 
     let bindings = bindgen::Builder::default()
         .header("wrapper.hpp")
@@ -29,8 +31,4 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
-
-    #[cfg(not(feature = "static_link"))]
-    std::fs::copy(format!("{SDK_PATH}/SimConnect.dll"), out_path.join("SimConnect.dll"))
-        .expect("Unable to copy SimConnect.dll to output directory");
 }

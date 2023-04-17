@@ -1,8 +1,8 @@
 [package]
 name = "sim_connect_rs"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2021"
-license-file = "./LICENSE"
+license = "MIT"
 repository = "https://github.com/dbidwell94/simconnect_rs"
 homepage = "https://github.com/dbidwell94/simconnect_rs"
 description = "An easy to use, opinionated API for SimConnect"
@@ -18,6 +18,6 @@ static_link = ["sim_connect_sys/static_link"]
 
 [dependencies]
 anyhow = { version = "1.0.70" }
-sim_connect_macros = { version = "0.1.0" }
-sim_connect_sys = { version = "0.1.0" }
-sim_connect_data = { version = "0.1.0" }
+sim_connect_macros = { path = "./sim_connect_macros", version = "0.1.0" }
+sim_connect_sys = { path = "./sim_connect_sys", version = "0.2.0" }
+sim_connect_data = { path = "./sim_connect_data", version = "0.1.1" }
