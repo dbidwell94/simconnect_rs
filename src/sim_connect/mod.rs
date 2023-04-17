@@ -378,6 +378,11 @@ impl SimConnect {
         Ok(false)
     }
 
+    /// Subscribe to a button press event. 
+    pub fn on_button_pressed() -> AnyhowResult<()> {
+        Ok(())
+    }
+
     #[cfg(feature = "async")]
     /// Gets data on a sim object. Calls `register_struct` if it hasn't already been called.
     /// If it hasn't been called, chances are this function will return None as SimConnect needs
