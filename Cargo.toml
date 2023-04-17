@@ -5,6 +5,7 @@ edition = "2021"
 license-file = "./LICENSE"
 repository = "https://github.com/dbidwell94/simconnect_rs"
 homepage = "https://github.com/dbidwell94/simconnect_rs"
+description = "An easy to use, opinionated API for SimConnect"
 
 [lib]
 
