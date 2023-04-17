@@ -2,6 +2,7 @@
 name = "sim_connect_sys"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/dbidwell94/simconnect_rs/tree/master/sim_connect_sys"
 
 links = "SimConnect"
 
