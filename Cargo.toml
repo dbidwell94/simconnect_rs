@@ -11,6 +11,7 @@ homepage = "https://github.com/dbidwell94/simconnect_rs"
 [features]
 derive = []
 async = []
+static_link = ["sim_connect_bindings/static_link"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -1,10 +1,20 @@
 use std::env;
 use std::path::PathBuf;
 
+#[cfg(feature = "static_link")]
+const SDK_PATH: &'static str = r#"C:\MSFS SDK\SimConnect SDK\lib\static"#;
+#[cfg(not(feature = "static_link"))]
+const SDK_PATH: &'static str = r#"C:\MSFS SDK\SimConnect SDK\lib"#;
+
+#[cfg(not(feature = "static_link"))]
+const LINK_LIB_ARGS: &'static str = "dynamic=SimConnect";
+#[cfg(feature = "static_link")]
+const LINK_LIB_ARGS: &'static str = "static=SimConnect";
+
 fn main() {
     println!("cargo:rerun-if-changed=wrapper.hpp");
-    println!("cargo:rustc-link-lib=SimConnect");
-    println!(r#"cargo:rustc-link-search=C:\MSFS SDK\SimConnect SDK\lib"#);
+    println!("cargo:rustc-link-lib={LINK_LIB_ARGS}");
+    println!("cargo:rustc-link-search={}", std::env::var("SIMCONNECT_SDK").unwrap_or(SDK_PATH.to_owned()));
 
     let bindings = bindgen::Builder::default()
         .header("wrapper.hpp")
@@ -31,6 +41,7 @@ fn main() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 
-    std::fs::copy("./SimConnect.dll", out_path.join("SimConnect.dll"))
+    #[cfg(not(feature = "static_link"))]
+    std::fs::copy(format!("{SDK_PATH}/SimConnect.dll"), out_path.join("SimConnect.dll"))
         .expect("Unable to copy SimConnect.dll to output directory");
 }
