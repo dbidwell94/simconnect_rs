@@ -17,6 +17,6 @@ static_link = ["sim_connect_sys/static_link"]
 
 [dependencies]
 anyhow = { version = "1.0.70" }
-sim_connect_macros = { version = "0.1", path = "./sim_connect_macros" }
+sim_connect_macros = { version = "0.1.0" }
 sim_connect_sys = { version = "0.1.0" }
 sim_connect_data = { version = "0.1", path = "./sim_connect_data" }
