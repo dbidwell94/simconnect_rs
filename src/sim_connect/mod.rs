@@ -18,7 +18,7 @@ use std::{
     time::Duration,
 };
 
-use sim_connect_bindings::bindings;
+use sim_connect_sys::bindings;
 
 pub use sim_connect_data::recv_data;
 pub use sim_connect_data::sim_events;

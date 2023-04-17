@@ -4,7 +4,7 @@ pub trait IntoSimVarType {
     fn into_sim_var() -> SimVarType;
 }
 
-use sim_connect_bindings::bindings;
+use sim_connect_sys::bindings;
 
 #[derive(Debug, FromPrimitive)]
 #[repr(i32)]

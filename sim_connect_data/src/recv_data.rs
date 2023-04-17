@@ -5,7 +5,7 @@ use std::mem::transmute;
 use std::ptr::NonNull;
 use std::sync::{Arc, Mutex};
 
-use sim_connect_bindings::bindings;
+use sim_connect_sys::bindings;
 
 trait FromPtr {
     fn from_pointer(data: NonNull<bindings::SIMCONNECT_RECV>) -> AnyhowResult<Self>

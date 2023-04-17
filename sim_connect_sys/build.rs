@@ -2,9 +2,9 @@ use std::env;
 use std::path::PathBuf;
 
 #[cfg(feature = "static_link")]
-const SDK_PATH: &'static str = r#"C:\MSFS SDK\SimConnect SDK\lib\static"#;
+const SDK_PATH: &'static str = r"C:\MSFS SDK\SimConnect SDK\lib\static";
 #[cfg(not(feature = "static_link"))]
-const SDK_PATH: &'static str = r#"C:\MSFS SDK\SimConnect SDK\lib"#;
+const SDK_PATH: &'static str = r"C:\MSFS SDK\SimConnect SDK\lib";
 
 #[cfg(not(feature = "static_link"))]
 const LINK_LIB_ARGS: &'static str = "dynamic=SimConnect";
