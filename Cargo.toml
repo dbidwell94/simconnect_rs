@@ -10,6 +10,7 @@ description = "An easy to use, opinionated API for SimConnect"
 [lib]
 
 [features]
+default = ["async"]
 serde = []
 derive = []
 async = []

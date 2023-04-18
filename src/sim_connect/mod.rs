@@ -4,7 +4,9 @@ use self::{
 pub use sim_connect_data::ToSimConnect;
 
 use anyhow::{anyhow, Result as AnyhowResult};
-use sim_connect_data::sim_events::SystemEventDataHolder;
+use sim_connect_data::{
+    recv_data::RecvSystemState, sim_event_args::SimStateArgs, sim_events::SystemEventDataHolder,
+};
 #[cfg(feature = "derive")]
 pub use sim_connect_macros;
 use std::{
@@ -110,9 +112,10 @@ pub struct SimConnect {
     data_event_map: HashMap<u32, Receiver<RecvSimData>>,
     system_event_callback_sender: Sender<(
         SystemEvent,
-        Option<Box<dyn Fn(SystemEventDataHolder) + Send>>,
+        Option<Box<dyn Fn(SystemEventDataHolder) + Send + Sync>>,
         bool,
     )>,
+    state_request_reciever: Receiver<RecvSystemState>,
     should_quit: Arc<RwLock<bool>>,
     listen_handle: Option<JoinHandle<AnyhowResult<()>>>,
     sender_sender: Sender<(u32, Sender<RecvSimData>)>,
@@ -135,9 +138,10 @@ impl SimConnect {
         data_sender: Receiver<(u32, Sender<RecvSimData>)>,
         callback_sender: Receiver<(
             SystemEvent,
-            Option<Box<dyn Fn(SystemEventDataHolder) + Send>>,
+            Option<Box<dyn Fn(SystemEventDataHolder) + Send + Sync>>,
             bool,
         )>,
+        state_sender: Sender<RecvSystemState>,
         should_quit: Arc<RwLock<bool>>,
         handle: ThreadSafeHandle,
         poll_interval: Duration,
@@ -192,7 +196,12 @@ impl SimConnect {
                     .ok_or_else(|| anyhow!("Pointer not expected to be null"))?;
                 let data = recv_data::RecvDataEvent::from_pointer(ptr)?;
 
+                println!("{data:?}");
+
                 match data {
+                    RecvDataEvent::SystemState(state) => {
+                        state_sender.send(state)?;
+                    }
                     RecvDataEvent::Null => {}
                     RecvDataEvent::Open(_) => {}
                     RecvDataEvent::Data(data) => {
@@ -277,6 +286,7 @@ impl SimConnect {
 
         let (sx, rc) = channel();
         let (evt_sx, evt_rcv) = channel();
+        let (state_sx, state_rcv) = channel();
 
         let listen_handle: JoinHandle<AnyhowResult<()>> = thread::spawn(move || {
             let should_quit = cloned_should_quit;
@@ -285,6 +295,7 @@ impl SimConnect {
             Self::begin_listen_for_events(
                 rc,
                 evt_rcv,
+                state_sx,
                 should_quit,
                 handle,
                 poll_interval.unwrap(),
@@ -298,6 +309,7 @@ impl SimConnect {
             program_name: program_name.to_str().unwrap().to_owned(),
             data_event_map: HashMap::new(),
             system_event_callback_sender: evt_sx,
+            state_request_reciever: state_rcv,
             should_quit,
             listen_handle: Some(listen_handle),
             sender_sender: sx,
@@ -377,12 +389,43 @@ impl SimConnect {
         Ok(())
     }
 
+    /// Requests current information about the system state.
+    pub async fn request_system_state(
+        &mut self,
+        state_request: SimStateArgs,
+    ) -> AnyhowResult<RecvSystemState> {
+        {
+            let handle = self.get_handle_lock()?;
+            let request_id: u32 = state_request.into();
+
+            check_hr!(unsafe {
+                bindings::SimConnect_RequestSystemState(
+                    handle.as_ptr(),
+                    request_id,
+                    state_request.sc_string().as_ptr(),
+                )
+            });
+        }
+
+        let possible_found = self.state_request_reciever.try_iter().last();
+        if let None = possible_found {
+            let data = self.state_request_reciever.recv().or_else(|_| {
+                Err(anyhow!(
+                    "Thread has been closed and channel no longer available"
+                ))
+            })?;
+            return Ok(data);
+        }
+
+        Ok(possible_found.unwrap())
+    }
+
     /// Requests a subscription to a system event. Events can be checked by using the
     /// `check_events` function
     pub fn subscribe_to_system_event(
         &mut self,
         event: SystemEvent,
-        callback: impl Fn(SystemEventDataHolder) -> () + Send + 'static,
+        callback: impl Fn(SystemEventDataHolder) -> () + Send + Sync + 'static,
     ) -> AnyhowResult<()> {
         let event_id: u32 = event.into();
 

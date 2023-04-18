@@ -6,46 +6,46 @@ pub trait InputEvent {}
 
 #[derive(ToSimConnect, Clone, Copy, InputEvent)]
 pub enum GearAndBrakes {
-    #[string("ANTISKID_BRAKES_TOGGLE")]
+    #[string(name = "ANTISKID_BRAKES_TOGGLE")]
     AntiskidBrakeToggled,
-    #[string("BRAKES")]
+    #[string(name = "BRAKES")]
     Brakes,
-    #[string("BRAKES_LEFT")]
+    #[string(name = "BRAKES_LEFT")]
     BrakesLeft,
-    #[string("BRAKES_RIGHT")]
+    #[string(name = "BRAKES_RIGHT")]
     BrakesRight,
-    #[string("GEAR_DOWN")]
+    #[string(name = "GEAR_DOWN")]
     GearDown,
-    #[string("GEAR_EMERGENCY_HANDLE_TOGGLE")]
+    #[string(name = "GEAR_EMERGENCY_HANDLE_TOGGLE")]
     GearEmergencyHandleToggled,
-    #[string("GEAR_PUMP")]
+    #[string(name = "GEAR_PUMP")]
     GearPump,
-    #[string("GEAR_UP")]
+    #[string(name = "GEAR_UP")]
     GearUp,
-    #[string("PARKING_BRAKES")]
+    #[string(name = "PARKING_BRAKES")]
     ParkingBrakes,
 }
 
 #[derive(Clone, Copy, ToSimConnect, InputEvent)]
 pub enum Failures {
-    #[string("MASTER_CAUTION_ACKNOWLEDGE")]
+    #[string(name = "MASTER_CAUTION_ACKNOWLEDGE")]
     MasterCautionAck,
-    #[string("MASTER_CAUTION_OFF")]
+    #[string(name = "MASTER_CAUTION_OFF")]
     MasterCautionOff,
-    #[string("MASTER_CAUTION_ON")]
+    #[string(name = "MASTER_CAUTION_ON")]
     MasterCautionOn,
-    #[string("MASTER_CAUTION_SET")]
+    #[string(name = "MASTER_CAUTION_SET")]
     MasterCautionSet,
-    #[string("MASTER_CAUTION_TOGGLE")]
+    #[string(name = "MASTER_CAUTION_TOGGLE")]
     MasterCautionToggle,
-    #[string("MASTER_WARNING_ACKNOWLEDGE")]
+    #[string(name = "MASTER_WARNING_ACKNOWLEDGE")]
     MasterWarningAck,
-    #[string("MASTER_WARNING_OFF")]
+    #[string(name = "MASTER_WARNING_OFF")]
     MasterWarningOff,
-    #[string("MASTER_WARNING_ON")]
+    #[string(name = "MASTER_WARNING_ON")]
     MasterWarningOn,
-    #[string("MASTER_WARNING_SET")]
+    #[string(name = "MASTER_WARNING_SET")]
     MasterWarningSet,
-    #[string("MASTER_WARNING_TOGGLE")]
+    #[string(name = "MASTER_WARNING_TOGGLE")]
     MasterWarningToggle,
 }

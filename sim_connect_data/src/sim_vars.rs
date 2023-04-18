@@ -5,65 +5,65 @@ use super::ToSimConnect;
 
 #[derive(Hash, PartialEq, Eq, Debug, ToSimConnect)]
 pub enum SimVar {
-    #[string("Kohlsman Setting hg")]
+    #[string(name = "Kohlsman Setting hg")]
     KohlsmanHG,
-    #[string("Indicated Altitude")]
+    #[string(name = "Indicated Altitude")]
     IndicatedAlt,
-    #[string("Plane Latitude")]
+    #[string(name = "Plane Latitude")]
     PlaneLat,
-    #[string("Plane Longitude")]
+    #[string(name = "Plane Longitude")]
     PlaneLong,
-    #[string("Airspeed Indicated")]
+    #[string(name = "Airspeed Indicated")]
     AirspeedIndicated,
-    #[string("Airspeed Mach")]
+    #[string(name = "Airspeed Mach")]
     AirspeedMach,
-    #[string("Airspeed True")]
+    #[string(name = "Airspeed True")]
     AirspeedTrue,
-    #[string("Category")]
+    #[string(name = "Category")]
     AirplaneCategory,
     Realism,
-    #[string("Sim Disabled")]
+    #[string(name = "Sim Disabled")]
     SimDisabled,
-    #[string("Sim On Ground")]
+    #[string(name = "Sim On Ground")]
     SimOnGround,
-    #[string("Barometer Pressure")]
+    #[string(name = "Barometer Pressure")]
     BarometerPressure,
-    #[string("Fuel Dump Active")]
+    #[string(name = "Fuel Dump Active")]
     FuelDumpActive,
-    #[string("Fuel Left Capacity")]
+    #[string(name = "Fuel Left Capacity")]
     FuelLeftCapacity,
-    #[string("Fuel Left Quantity")]
+    #[string(name = "Fuel Left Quantity")]
     FuelLeftQuantity,
-    #[string("Fuel Right Capacity")]
+    #[string(name = "Fuel Right Capacity")]
     FuelRightCapacity,
-    #[string("Fuel Right Quantity")]
+    #[string(name = "Fuel Right Quantity")]
     FuelRightQuantity,
-    #[string("Fuel Total Quantity")]
+    #[string(name = "Fuel Total Quantity")]
     FuelTotalQuantity,
-    #[string("Fuel Total Capacity")]
+    #[string(name = "Fuel Total Capacity")]
     FuelTotalCapacity,
-    #[string("Fuel Total Quantity Weight")]
+    #[string(name = "Fuel Total Quantity Weight")]
     FuelTotalQuantityWeight,
-    #[string("Unlimited Fuel")]
+    #[string(name = "Unlimited Fuel")]
     IsUnlimitedFuelSet,
-    #[string("Autobrakes Active")]
+    #[string(name = "Autobrakes Active")]
     AutobrakesActive,
-    #[string("Antiskid Brakes Active")]
+    #[string(name = "Antiskid Brakes Active")]
     AntiskidBrakesActive,
-    #[string("Brake Parking Position")]
+    #[string(name = "Brake Parking Position")]
     ParkingBrakeEnabled,
-    #[string("Light Strobe")]
+    #[string(name = "Light Strobe")]
     LightStobeEnabled,
-    #[string("Light Landing")]
+    #[string(name = "Light Landing")]
     LightLandingEnabled,
-    #[string("Light Taxi")]
+    #[string(name = "Light Taxi")]
     LightTaxiEnabled,
-    #[string("Light Beacon")]
+    #[string(name = "Light Beacon")]
     LightBeaconEnabled,
-    #[string("Light Nav")]
+    #[string(name = "Light Nav")]
     LightNavEnabled,
-    #[string("Light Logo")]
+    #[string(name = "Light Logo")]
     LightLogoEnabled,
-    #[string("Light Wing")]
+    #[string(name = "Light Wing")]
     LightWingEnabled,
 }

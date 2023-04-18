@@ -22,135 +22,135 @@ pub enum Length {
 
 #[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
 pub enum Area {
-    #[string("square inch")]
+    #[string(name = "square inch")]
     SqIn,
-    #[string("square feet")]
+    #[string(name = "square feet")]
     SqFt,
-    #[string("square yard")]
+    #[string(name = "square yard")]
     SqYd,
-    #[string("square mile")]
+    #[string(name = "square mile")]
     SqMi,
-    #[string("square millimeter")]
+    #[string(name = "square millimeter")]
     SqMm,
-    #[string("square centimeter")]
+    #[string(name = "square centimeter")]
     SqCm,
-    #[string("square meter")]
+    #[string(name = "square meter")]
     SqM,
-    #[string("square kilometer")]
+    #[string(name = "square kilometer")]
     SqKm,
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
 pub enum Volume {
-    #[string("cubic inch")]
+    #[string(name = "cubic inch")]
     Cin,
-    #[string("cubit foot")]
+    #[string(name = "cubit foot")]
     Cft,
-    #[string("cubic yard")]
+    #[string(name = "cubic yard")]
     Cyd,
-    #[string("cubic mile")]
+    #[string(name = "cubic mile")]
     Cmi,
-    #[string("cubic millimeter")]
+    #[string(name = "cubic millimeter")]
     Cmm,
-    #[string("cubic meter")]
+    #[string(name = "cubic meter")]
     Cm,
-    #[string("cubic kilometer")]
+    #[string(name = "cubic kilometer")]
     Ckm,
-    #[string("liter")]
+    #[string(name = "liter")]
     L,
-    #[string("gallon")]
+    #[string(name = "gallon")]
     Gal,
-    #[string("quart")]
+    #[string(name = "quart")]
     Qt,
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
 pub enum Temp {
-    #[string("kelvin")]
+    #[string(name = "kelvin")]
     Kel,
-    #[string("rankine")]
+    #[string(name = "rankine")]
     Rank,
-    #[string("farenheit")]
+    #[string(name = "farenheit")]
     F,
-    #[string("celsius")]
+    #[string(name = "celsius")]
     C,
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
 pub enum Angle {
-    #[string("radian")]
+    #[string(name = "radian")]
     Rad,
-    #[string("round")]
+    #[string(name = "round")]
     Round,
-    #[string("degree")]
+    #[string(name = "degree")]
     Deg,
-    #[string("grad")]
+    #[string(name = "grad")]
     Grad,
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
 pub enum GPS {
-    #[string("degree latitude")]
+    #[string(name = "degree latitude")]
     DegLat,
-    #[string("degree longitude")]
+    #[string(name = "degree longitude")]
     DegLon,
-    #[string("meter latitude")]
+    #[string(name = "meter latitude")]
     MetLat,
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
 pub enum AngularVelocity {
-    #[string("radian per second")]
+    #[string(name = "radian per second")]
     RPS,
-    #[string("revolution per minute")]
+    #[string(name = "revolution per minute")]
     RPM,
-    #[string("degree per second")]
+    #[string(name = "degree per second")]
     DPS,
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
 pub enum Speed {
-    #[string("meter per second")]
+    #[string(name = "meter per second")]
     MPS,
-    #[string("meter per minute")]
+    #[string(name = "meter per minute")]
     MPM,
-    #[string("kilometers per hour")]
+    #[string(name = "kilometers per hour")]
     KPH,
-    #[string("feet/second")]
+    #[string(name = "feet/second")]
     FPS,
-    #[string("feet/minute")]
+    #[string(name = "feet/minute")]
     FPM,
-    #[string("mile per hour")]
+    #[string(name = "mile per hour")]
     MPH,
-    #[string("knot")]
+    #[string(name = "knot")]
     KNT,
-    #[string("mach")]
+    #[string(name = "mach")]
     MAC,
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
 pub enum Pressure {
-    #[string("pascal")]
+    #[string(name = "pascal")]
     Pa,
-    #[string("kilopascal")]
+    #[string(name = "kilopascal")]
     Kpa,
-    #[string("millimeter of mercury")]
+    #[string(name = "millimeter of mercury")]
     MmHg,
-    #[string("centimeter of mercury")]
+    #[string(name = "centimeter of mercury")]
     CmHg,
-    #[string("inch of mercury")]
+    #[string(name = "inch of mercury")]
     InHg,
-    #[string("bar")]
+    #[string(name = "bar")]
     Bar,
-    #[string("atmosphere")]
+    #[string(name = "atmosphere")]
     Atm,
-    #[string("psi")]
+    #[string(name = "psi")]
     Psi,
-    #[string("boost psi")]
+    #[string(name = "boost psi")]
     BoostPsi,
-    #[string("boost inHg")]
+    #[string(name = "boost inHg")]
     BoostInHg,
-    #[string("boost cmHg")]
+    #[string(name = "boost cmHg")]
     BoostCmHg,
 }
 

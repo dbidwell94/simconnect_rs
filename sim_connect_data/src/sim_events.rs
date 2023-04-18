@@ -33,11 +33,11 @@ use super::ToSimConnect;
 #[repr(u32)]
 #[serde(rename = "camelCase")]
 pub enum SystemEvent {
-    #[string("1sec")]
+    #[string(name = "1sec")]
     OneSec,
-    #[string("4sec")]
+    #[string(name = "4sec")]
     FourSec,
-    #[string("6Hz")]
+    #[string(name = "6Hz")]
     SixHz,
     AircraftLoaded,
     Crashed,
