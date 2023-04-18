@@ -10,8 +10,6 @@ description = "An easy to use, opinionated API for SimConnect"
 [lib]
 
 [features]
-default = ["async"]
-serde = []
 derive = []
 async = []
 static_link = ["sim_connect_sys/static_link"]
