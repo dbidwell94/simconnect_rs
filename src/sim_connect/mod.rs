@@ -4,6 +4,7 @@ use self::{
 pub use sim_connect_data::ToSimConnect;
 
 use anyhow::{anyhow, Result as AnyhowResult};
+use sim_connect_data::sim_events::SystemEventDataHolder;
 #[cfg(feature = "derive")]
 pub use sim_connect_macros;
 use std::{
@@ -21,6 +22,7 @@ use std::{
 use sim_connect_sys::bindings;
 
 pub use sim_connect_data::recv_data;
+pub use sim_connect_data::sim_event_args;
 pub use sim_connect_data::sim_events;
 pub use sim_connect_data::sim_units;
 pub use sim_connect_data::sim_var_types;
@@ -106,6 +108,11 @@ pub struct SimConnect {
     type_map: HashMap<String, u32>,
     program_name: String,
     data_event_map: HashMap<u32, Receiver<RecvSimData>>,
+    system_event_callback_sender: Sender<(
+        SystemEvent,
+        Option<Box<dyn Fn(SystemEventDataHolder) + Send>>,
+        bool,
+    )>,
     should_quit: Arc<RwLock<bool>>,
     listen_handle: Option<JoinHandle<AnyhowResult<()>>>,
     sender_sender: Sender<(u32, Sender<RecvSimData>)>,
@@ -126,15 +133,31 @@ impl SimConnect {
 
     fn begin_listen_for_events(
         data_sender: Receiver<(u32, Sender<RecvSimData>)>,
+        callback_sender: Receiver<(
+            SystemEvent,
+            Option<Box<dyn Fn(SystemEventDataHolder) + Send>>,
+            bool,
+        )>,
         should_quit: Arc<RwLock<bool>>,
         handle: ThreadSafeHandle,
         poll_interval: Duration,
     ) -> AnyhowResult<()> {
         let mut should_wait: bool;
         let mut data_map: HashMap<u32, Sender<RecvSimData>> = HashMap::new();
+        let mut callback_map: HashMap<SystemEvent, Box<dyn Fn(SystemEventDataHolder)>> =
+            HashMap::new();
         loop {
             for (data_id, sender) in data_sender.try_iter() {
                 data_map.insert(data_id, sender);
+            }
+            for (event_type, event_callback, insert) in callback_sender.try_iter() {
+                if insert {
+                    if let Some(callback) = event_callback {
+                        callback_map.insert(event_type, callback);
+                    }
+                } else {
+                    callback_map.remove(&event_type);
+                }
             }
             should_wait = true;
             {
@@ -169,18 +192,24 @@ impl SimConnect {
                     .ok_or_else(|| anyhow!("Pointer not expected to be null"))?;
                 let data = recv_data::RecvDataEvent::from_pointer(ptr)?;
 
-                if let RecvDataEvent::Open(ref open_event) = data {
-                    println!("{open_event:?}");
-                }
-
-                if let RecvDataEvent::Data(data) = data {
-                    let data_id = data.get_id();
-                    let sender = data_map.get(&data_id);
-                    if let Some(sender) = sender {
-                        sender
-                            .send(data)
-                            .expect("Unable to send data across threads.");
+                match data {
+                    RecvDataEvent::Null => {},
+                    RecvDataEvent::Open(_) => {},
+                    RecvDataEvent::Data(data) => {
+                        let data_id = data.get_id();
+                        let sender = data_map.get(&data_id);
+                        if let Some(sender) = sender {
+                            sender
+                                .send(data)
+                                .expect("Unable to send data across threads.");
+                        }
                     }
+                    RecvDataEvent::Event(evt_type) => {
+                        if let Some(callback) = callback_map.get(&evt_type.system_event) {
+                            callback.as_ref()(evt_type);
+                        };
+                    }
+                    RecvDataEvent::Quit => {},
                 }
 
                 should_wait = false;
@@ -246,12 +275,19 @@ impl SimConnect {
         let cloned_handle = handle.clone();
 
         let (sx, rc) = channel();
+        let (evt_sx, evt_rcv) = channel();
 
         let listen_handle: JoinHandle<AnyhowResult<()>> = thread::spawn(move || {
             let should_quit = cloned_should_quit;
             let handle = cloned_handle;
 
-            Self::begin_listen_for_events(rc, should_quit, handle, poll_interval.unwrap())?;
+            Self::begin_listen_for_events(
+                rc,
+                evt_rcv,
+                should_quit,
+                handle,
+                poll_interval.unwrap(),
+            )?;
             Ok(())
         });
 
@@ -260,6 +296,7 @@ impl SimConnect {
             type_map: HashMap::new(),
             program_name: program_name.to_str().unwrap().to_owned(),
             data_event_map: HashMap::new(),
+            system_event_callback_sender: evt_sx,
             should_quit,
             listen_handle: Some(listen_handle),
             sender_sender: sx,
@@ -341,8 +378,12 @@ impl SimConnect {
 
     /// Requests a subscription to a system event. Events can be checked by using the
     /// `check_events` function
-    pub fn subscribe_to_system_event(&self, event: SystemEvent) -> AnyhowResult<()> {
-        let event_id = event as u32;
+    pub fn subscribe_to_system_event(
+        &mut self,
+        event: SystemEvent,
+        callback: impl Fn(SystemEventDataHolder) -> () + Send + 'static,
+    ) -> AnyhowResult<()> {
+        let event_id: u32 = event.into();
 
         {
             let handle = self.get_handle_lock()?;
@@ -356,7 +397,26 @@ impl SimConnect {
             });
         }
 
+        self.system_event_callback_sender
+            .send((event, Some(Box::new(callback)), true))
+            .map_err(|_| anyhow!("Unable to send function to the listener"))?;
+
         Ok(())
+    }
+
+    pub fn unsubscribe_from_system_event(&mut self, event: SystemEvent) -> AnyhowResult<()> {
+        let evt_id: u32 = event.into();
+        let handle = self.get_handle_lock()?;
+
+        check_hr!(unsafe {
+            bindings::SimConnect_UnsubscribeFromSystemEvent(handle.as_ptr(), evt_id)
+        });
+
+        self.system_event_callback_sender
+            .send((event, None, false))
+            .unwrap();
+
+        todo!()
     }
 
     /// Check weather or not SimConnect has data on a specified struct
@@ -376,11 +436,6 @@ impl SimConnect {
             return Ok(false);
         }
         Ok(false)
-    }
-
-    /// Subscribe to a button press event. 
-    pub fn on_button_pressed() -> AnyhowResult<()> {
-        Ok(())
     }
 
     #[cfg(feature = "async")]

@@ -7,7 +7,9 @@ use std::sync::{Arc, Mutex};
 
 use sim_connect_sys::bindings;
 
-trait FromPtr {
+use crate::sim_events::{SystemEventData, SystemEventDataHolder};
+
+pub trait FromPtr {
     fn from_pointer(data: NonNull<bindings::SIMCONNECT_RECV>) -> AnyhowResult<Self>
     where
         Self: Sized;
@@ -19,6 +21,7 @@ pub enum RecvDataEvent {
     Null,
     Open(RecVOpen),
     Data(RecvSimData),
+    Event(SystemEventDataHolder),
     Quit,
 }
 
@@ -37,6 +40,9 @@ impl RecvDataEvent {
             }
             bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_NULL => Self::Null,
             bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_QUIT => Self::Quit,
+            bindings::SIMCONNECT_RECV_ID_SIMCONNECT_RECV_ID_EVENT => {
+                Self::Event(SystemEventDataHolder::from_pointer(data)?)
+            }
             _ => Self::Null,
         })
     }
@@ -146,3 +152,15 @@ impl FromPtr for RecvSimData {
 unsafe impl Send for RecvSimData {}
 
 /* #endregion */
+
+#[derive(Debug)]
+pub struct RecvSystemEvent(SystemEventData);
+
+impl FromPtr for RecvSystemEvent {
+    fn from_pointer(data: NonNull<bindings::SIMCONNECT_RECV>) -> AnyhowResult<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self(SystemEventData::from_pointer(data)?))
+    }
+}

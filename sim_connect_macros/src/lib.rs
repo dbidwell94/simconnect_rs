@@ -119,3 +119,15 @@ pub fn to_sim_unit(input: TokenStream) -> TokenStream {
 
     to_return.into()
 }
+
+#[proc_macro_derive(InputEvent)]
+pub fn to_input_event(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let ident = input.ident;
+
+    let to_return = quote! {
+        impl InputEvent for #ident {}
+    };
+
+    to_return.into()
+}
