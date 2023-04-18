@@ -1,6 +1,6 @@
 [package]
 name = "sim_connect_macros"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 repository = "https://github.com/dbidwell94/simconnect_rs/tree/master/sim_connect_macros"
 license = "MIT"

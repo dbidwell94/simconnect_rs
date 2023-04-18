@@ -131,3 +131,37 @@ pub fn to_input_event(input: TokenStream) -> TokenStream {
 
     to_return.into()
 }
+
+#[proc_macro_derive(IterEnum)]
+pub fn plain_enum_iter(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let ident = &input.ident;
+
+    let field_name = match input.data {
+        Data::Enum(DataEnum { variants, .. }) => variants,
+        _ => panic!("Expected an enum"),
+    }
+    .into_iter()
+    .map(|field| {
+        if field.fields.len() > 0 {
+            panic!("Expected an enum with no fields");
+        }
+        field.ident
+    });
+
+    let to_return = quote! {
+        impl IterEnum for #ident {
+            type Item = #ident;
+
+            fn iter_enum() -> std::vec::IntoIter<#ident> {
+                vec![
+                    #(
+                        Self::#field_name,
+                    )*
+                ].into_iter()
+            }
+        }
+    };
+
+    to_return.into()
+}

@@ -1,14 +1,16 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use sim_connect_macros::ToSimConnect;
+use sim_connect_macros::{IterEnum, ToSimConnect};
 use sim_connect_sys::bindings;
 use std::{
     ffi::{CStr, CString},
     mem::transmute,
+    str::FromStr,
 };
 
 use crate::{
     recv_data::FromPtr,
     sim_event_args::{SimObjectType, SimViewType},
+    IterEnum,
 };
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +28,7 @@ use super::ToSimConnect;
     IntoPrimitive,
     Serialize,
     Deserialize,
+    IterEnum,
 )]
 #[repr(u32)]
 #[serde(rename = "camelCase")]
@@ -57,6 +60,24 @@ pub enum SystemEvent {
     Sound,
     Unpaused,
     View,
+}
+
+impl FromStr for SystemEvent {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let self_iter = Self::iter_enum();
+        let lower_s = s.to_lowercase();
+
+        for item in self_iter {
+            let lower_item = item.to_string().to_lowercase();
+            if lower_s == lower_item {
+                return Ok(item);
+            }
+        }
+
+        Err(anyhow::anyhow!("Unable to serialize {s} to SystemEvent"))
+    }
 }
 
 #[derive(Debug)]

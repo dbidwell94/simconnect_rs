@@ -193,8 +193,8 @@ impl SimConnect {
                 let data = recv_data::RecvDataEvent::from_pointer(ptr)?;
 
                 match data {
-                    RecvDataEvent::Null => {},
-                    RecvDataEvent::Open(_) => {},
+                    RecvDataEvent::Null => {}
+                    RecvDataEvent::Open(_) => {}
                     RecvDataEvent::Data(data) => {
                         let data_id = data.get_id();
                         let sender = data_map.get(&data_id);
@@ -205,11 +205,12 @@ impl SimConnect {
                         }
                     }
                     RecvDataEvent::Event(evt_type) => {
+                        println!("{evt_type:?}");
                         if let Some(callback) = callback_map.get(&evt_type.system_event) {
                             callback.as_ref()(evt_type);
                         };
                     }
-                    RecvDataEvent::Quit => {},
+                    RecvDataEvent::Quit => {}
                 }
 
                 should_wait = false;
@@ -414,9 +415,9 @@ impl SimConnect {
 
         self.system_event_callback_sender
             .send((event, None, false))
-            .unwrap();
+            .map_err(|_| anyhow!("Unable to unsubscribe from system event"))?;
 
-        todo!()
+        Ok(())
     }
 
     /// Check weather or not SimConnect has data on a specified struct
