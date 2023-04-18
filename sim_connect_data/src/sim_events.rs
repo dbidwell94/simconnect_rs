@@ -10,11 +10,11 @@ use std::{
 use crate::{
     recv_data::FromPtr,
     sim_event_args::{SimObjectType, SimViewType},
-    IterEnum,
+    internals::IterEnum,
 };
 use serde::{Deserialize, Serialize};
 
-use super::ToSimConnect;
+use super::internals::ToSimConnect;
 
 #[derive(
     Debug,

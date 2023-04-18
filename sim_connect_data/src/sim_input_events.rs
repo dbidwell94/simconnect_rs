@@ -1,4 +1,4 @@
-use crate::ToSimConnect;
+use crate::internals::ToSimConnect;
 use sim_connect_macros::{InputEvent, ToSimConnect};
 use std::ffi::CString;
 

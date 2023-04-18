@@ -1,7 +1,7 @@
 use sim_connect_macros::{SimUnit, ToSimConnect};
 use std::{ffi::CString, hash::Hash};
 
-use super::ToSimConnect;
+use super::internals::ToSimConnect;
 
 pub trait SimUnit: ToSimConnect {}
 

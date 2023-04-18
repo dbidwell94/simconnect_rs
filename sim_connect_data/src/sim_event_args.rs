@@ -1,6 +1,6 @@
 use std::{mem::transmute, str::FromStr};
 
-use crate::{IterEnum, ToSimConnect};
+use crate::internals::{IterEnum, ToSimConnect};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 use sim_connect_macros::{IterEnum, ToSimConnect};
