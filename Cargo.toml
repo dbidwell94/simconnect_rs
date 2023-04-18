@@ -1,6 +1,6 @@
 [package]
 name = "sim_connect_rs"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/dbidwell94/simconnect_rs"
