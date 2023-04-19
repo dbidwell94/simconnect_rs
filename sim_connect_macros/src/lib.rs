@@ -1,4 +1,4 @@
-use darling::{FromField, FromVariant};
+use darling::{FromField, FromVariant, ToTokens};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
@@ -89,7 +89,7 @@ pub fn enum_to_sim_string(input: TokenStream) -> TokenStream {
     };
 
     let variant_ident = variants.iter().map(|var| {
-        if var.fields.len() > 0 {
+        if !var.fields.is_empty() {
             panic!("Enum should not have any fields");
         }
         var.ident.to_owned()
@@ -157,7 +157,7 @@ pub fn plain_enum_iter(input: TokenStream) -> TokenStream {
     }
     .into_iter()
     .map(|field| {
-        if field.fields.len() > 0 {
+        if !field.fields.is_empty() {
             panic!("Expected an enum with no fields");
         }
         field.ident
@@ -221,35 +221,90 @@ pub fn c_data_to_struct(input: TokenStream) -> TokenStream {
         .into_iter()
         .map(|f| f.ident.expect("Expected named fields"));
 
-    let mut previous_field: Option<(Ident, u32)> = None;
+    let mut previous_field_pointer: Option<Ident> = None;
     let mut converted_field_idents: Vec<Ident> = Vec::new();
     let borrowed_vec = &mut converted_field_idents;
 
-    let converter: Vec<_> = fields.into_iter().map(move |f| {
-        let field_ident = f.ident.expect("Expected named fields");
-        let field_type = f.ty;
-        let converter_ident = Ident::new(&format!("{field_ident}"), Span::call_site());
+    let base_pointer_name = Ident::new(&format!("pointer"), Span::call_site());
+    let cloned_base_pointer_name = base_pointer_name.clone();
+    let total_fields = &fields.len();
+    let mut current_iter = 0usize;
 
-        borrowed_vec.push(converter_ident.clone());
+    let converter: Vec<proc_macro2::TokenStream> = fields
+        .into_iter()
+        .map(move |f| {
+            current_iter += 1;
+            let previous_field_name = previous_field_pointer
+                .as_ref()
+                .unwrap_or(&cloned_base_pointer_name);
 
-        let converter_pointer_ident =
-            Ident::new(&format!("{converter_ident}_pointer"), Span::call_site());
+            let at_last_field = total_fields + 1 == current_iter;
 
-        let to_return = if let Some((ref id, ref size)) = previous_field {
 
-            quote! {
-                let #converter_pointer_ident: *mut #field_type = std::mem::transmute(#id.add(#size));
-                let #converter_ident = *#converter_pointer_ident;
-            }
-        } else {
-            quote! {
-                let #converter_pointer_ident: *mut #field_type = std::mem::transmute(pointer);
-                let #converter_ident = *#converter_pointer_ident;
-            }
-        };
-        previous_field = Some((converter_pointer_ident.clone(), 1));
-        to_return
-    }).collect();
+            let field_ident = f.ident.expect("Expected named fields");
+            let field_type = f.ty;
+            let field_size_ident = Ident::new(&format!("{field_ident}_size"), Span::call_site());
+
+            let string_requested = field_type.clone().to_token_stream().to_string() == "String";
+
+            let field_ident_pointer =
+                Ident::new(&format!("{field_ident}_pointer"), Span::call_site());
+            let field_ident_pointer_type = if string_requested {
+                quote! {*const i8}
+            } else {
+                quote! {*mut #field_type}
+            };
+            let temporary_c_string = string_requested.then(|| {
+                let temp_ident = Ident::new(&format!("{field_ident}_cstr"), Span::call_site());
+                quote! {
+                    let #temp_ident = std::ffi::CStr::from_ptr(#field_ident_pointer);
+                }
+            });
+            let field_len = (!at_last_field).then(|| {if string_requested {
+                let c_str_ident = Ident::new(&format!("{field_ident}_cstr"), Span::call_site());
+                quote! {
+                    let #field_size_ident: usize = #c_str_ident.to_bytes_with_nul().len() + 1;
+                }
+            } else {
+                quote! {
+                    let #field_size_ident: usize = 1;
+                }
+            }});
+
+            let transmute = if previous_field_pointer.is_none() {
+                quote! {std::mem::transmute(#previous_field_name)}
+            } else {
+                let temp_prev_field_size = previous_field_name.to_token_stream().to_string().replace("_pointer", "_size");
+                let prev_field_size_ident = Ident::new(&format!("{temp_prev_field_size}"), Span::call_site());
+                quote! {
+                    std::mem::transmute(#previous_field_name.add(#prev_field_size_ident))
+                }
+            };
+
+            let deref_field = if string_requested {
+                let c_str_ident = Ident::new(&format!("{field_ident}_cstr"), Span::call_site());
+                quote! {
+                    let #field_ident = #c_str_ident.to_str().expect("Unable to convert CStr to str").to_string();
+                }
+            } else {
+                quote! {
+                    let #field_ident = *#field_ident_pointer;
+                }
+            };
+
+            borrowed_vec.push(field_ident.clone());
+
+            let to_return = quote! {
+                let #field_ident_pointer: #field_ident_pointer_type = #transmute;
+                #temporary_c_string
+                #field_len
+                #deref_field
+            };
+            previous_field_pointer = Some(field_ident_pointer.clone());
+
+            to_return
+        })
+        .collect();
 
     let to_return = quote! {
         impl SimConnectToStruct for #ident {
@@ -257,7 +312,7 @@ pub fn c_data_to_struct(input: TokenStream) -> TokenStream {
             type ReturnType = #ident;
 
             unsafe fn parse_struct(pointer: std::ptr::NonNull<u32>) -> Result<Self::ReturnType, Self::Error> {
-                let pointer = pointer.as_ptr();
+                let #base_pointer_name = pointer.as_ptr();
                 # (
                     #converter
                 )*
