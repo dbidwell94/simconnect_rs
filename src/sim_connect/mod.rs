@@ -1,12 +1,10 @@
-use self::{
-    sim_events::SystemEvent, sim_units::SimUnit, sim_var_types::SimVarType, sim_vars::SimVar,
-};
+use self::sim_events::SystemEvent;
 pub use sim_connect_data::ToSimConnect;
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use sim_connect_data::{
     recv_data::RecvSystemState, sim_event_args::SimStateArgs, sim_events::SystemEventDataHolder,
-    sim_input_events::InputEvent,
+    sim_input_events::InputEvent, SimConnectToStruct, StructToSimConnect,
 };
 #[cfg(feature = "derive")]
 pub use sim_connect_macros;
@@ -33,55 +31,7 @@ pub use sim_connect_data::sim_vars;
 
 use recv_data::RecvSimData;
 
-/// # Description
-/// Auto-implement `StructToSimConnect`.
-///
-/// # Notes
-///
-/// - Required enums must be in scope when specifying them in the `#[datum(..)]` attribute
-/// - Id's cannot be re-used in the same struct. This will create undefined behaviour
-/// - Your data type will be automatically converted if the data type is supported. Current supported data types are:
-///     - i32
-///     - i64
-///     - f32
-///     - f64
-///     - String
-///
-/// # Example
-///
-/// ```
-///     use sim_connect_rs::{
-///         sim_units::{Length, Speed},
-///         sim_vars::SimVar,
-///         StructToSimConnect,
-///     };
-///
-///     #[derive(StructToSimConnect)]
-///     struct TestStruct {
-///         #[datum(
-///             sim_var = "SimVar::AirspeedTrue",
-///             sim_unit = "Speed::KNT",
-///         )]
-///         airspeed: i32,
-///         #[datum(
-///              sim_var = "SimVar::IndicatedAlt",
-///              sim_unit = "Length::Foot",
-///         )]
-///         altitude: f32,
-///}
-/// ```
-pub trait StructToSimConnect {
-    fn get_fields() -> Vec<SimConnectDatum>;
-}
-
 use recv_data::RecvDataEvent;
-
-pub struct SimConnectDatum {
-    pub id: u32,
-    pub sim_var: SimVar,
-    pub sim_unit: Box<dyn SimUnit>,
-    pub data_type: SimVarType,
-}
 
 macro_rules! check_hr {
     ($hr: expr) => {
@@ -124,11 +74,10 @@ pub struct SimConnect {
 
 impl SimConnect {
     fn get_handle_lock(&self) -> AnyhowResult<MutexGuard<NonNull<c_void>>> {
-        Ok(self
-            .handle
+        self.handle
             .0
             .lock()
-            .or_else(|_| Err(anyhow!("SimConnect handle has been poisoned")))?)
+            .map_err(|_| anyhow!("SimConnect handle has been poisoned"))
     }
 
     fn get_client_data_name(&self, name: &str) -> String {
@@ -181,7 +130,7 @@ impl SimConnect {
                 let handle = handle
                     .0
                     .lock()
-                    .or_else(|_| Err(anyhow!("SimConnect handle has been poisoned")))?;
+                    .map_err(|_| anyhow!("SimConnect handle has been poisoned"))?;
 
                 hr = unsafe {
                     bindings::SimConnect_GetNextDispatch(
@@ -196,8 +145,6 @@ impl SimConnect {
                 let ptr = std::ptr::NonNull::new(data)
                     .ok_or_else(|| anyhow!("Pointer not expected to be null"))?;
                 let data = recv_data::RecvDataEvent::from_pointer(ptr)?;
-
-                println!("{data:?}");
 
                 match data {
                     RecvDataEvent::SystemState(state) => {
@@ -215,7 +162,6 @@ impl SimConnect {
                         }
                     }
                     RecvDataEvent::Event(evt_type) => {
-                        println!("{evt_type:?}");
                         if let Some(callback) = callback_map.get(&evt_type.system_event) {
                             callback.as_ref()(evt_type);
                         };
@@ -233,9 +179,9 @@ impl SimConnect {
         Ok(())
     }
 
-    fn get_struct_name<T: StructToSimConnect + Copy>(&self) -> String {
+    fn get_struct_name<T: StructToSimConnect>(&self) -> String {
         let struct_name = std::any::type_name::<T>();
-        return self.get_client_data_name(struct_name);
+        self.get_client_data_name(struct_name)
     }
 
     /// Can ONLY be called after a call to `register_struct` has been called.
@@ -243,9 +189,9 @@ impl SimConnect {
     ///
     /// This function will return an error if the struct has not yet been registered
     /// with SimConnect
-    fn request_data_on_self_object<T: StructToSimConnect + Copy>(&self) -> AnyhowResult<()> {
+    fn request_data_on_self_object<T: StructToSimConnect>(&self) -> AnyhowResult<()> {
         let type_name = std::any::type_name::<T>();
-        let data_name = self.get_client_data_name(&type_name);
+        let data_name = self.get_client_data_name(type_name);
         let object_id = self
             .type_map
             .get(&data_name)
@@ -259,7 +205,7 @@ impl SimConnect {
                 bindings::SimConnect_RequestDataOnSimObjectType(
                     handle.as_ptr(),
                     0,
-                    object_id.clone(),
+                    *object_id,
                     0,
                     bindings::SIMCONNECT_SIMOBJECT_TYPE_SIMCONNECT_SIMOBJECT_TYPE_USER,
                 )
@@ -289,7 +235,7 @@ impl SimConnect {
     /// let sc = SimConnect::open("My Awesome Application", Some(Duration::from_millis(500)));
     /// ```
     pub fn open(program_name: &str, mut poll_interval: Option<Duration>) -> AnyhowResult<Self> {
-        if let None = poll_interval {
+        if poll_interval.is_none() {
             poll_interval = Some(Duration::from_secs(1));
         }
         let mut handle = std::ptr::null_mut() as bindings::HANDLE;
@@ -349,7 +295,7 @@ impl SimConnect {
     }
 
     /// Registers the struct's field definitions with SimConnect
-    pub fn register_struct<T: StructToSimConnect + Copy>(&mut self) -> AnyhowResult<()> {
+    pub fn register_struct<T: StructToSimConnect>(&mut self) -> AnyhowResult<()> {
         let data_name = self.get_struct_name::<T>();
 
         let new_data_id = self.type_map.len() as u32;
@@ -365,12 +311,22 @@ impl SimConnect {
             let handle = *handle_lock;
 
             for field in fields {
+                // let sim_unit = field
+                //     .sim_unit
+                //     .map(|unit| unsafe { *unit.sc_string().as_ptr() as *const i8 })
+                //     .unwrap_or(std::ptr::null());
+
                 check_hr!(unsafe {
                     bindings::SimConnect_AddToDataDefinition(
                         handle.as_ptr(),
                         new_data_id,
                         field.sim_var.sc_string().as_ptr(),
-                        field.sim_unit.sc_string().as_ptr(),
+                        field
+                            .sim_unit
+                            .map(|unit| unit.sc_string())
+                            .or(Some(CString::new("").unwrap()))
+                            .unwrap()
+                            .as_ptr(),
                         field.data_type as i32,
                         0.0,
                         field.id,
@@ -443,12 +399,11 @@ impl SimConnect {
         }
 
         let possible_found = self.state_request_reciever.try_iter().last();
-        if let None = possible_found {
-            let data = self.state_request_reciever.recv().or_else(|_| {
-                Err(anyhow!(
-                    "Thread has been closed and channel no longer available"
-                ))
-            })?;
+        if possible_found.is_none() {
+            let data = self
+                .state_request_reciever
+                .recv()
+                .map_err(|_| anyhow!("Thread has been closed and channel no longer available"))?;
             return Ok(data);
         }
 
@@ -463,7 +418,7 @@ impl SimConnect {
     pub fn subscribe_to_system_event(
         &mut self,
         event: SystemEvent,
-        callback: impl Fn(SystemEventDataHolder) -> () + Send + Sync + 'static,
+        callback: impl Fn(SystemEventDataHolder) + Send + Sync + 'static,
     ) -> AnyhowResult<()> {
         let event_id: u32 = event.into();
 
@@ -506,7 +461,7 @@ impl SimConnect {
     /* #region input_event */
     /// Request subscription to an input event. Input events are located in the `sim_connect_rs::sim_connect_data::sim_input_events` package
     pub fn subscribe_to_input_event(&mut self, input_event: impl InputEvent) -> AnyhowResult<()> {
-        let event = Box::new(input_event);
+        let _event = Box::new(input_event);
         Ok(())
     }
     /* #endregion */
@@ -516,7 +471,7 @@ impl SimConnect {
     /// Gets data on a sim object. Calls `register_struct` if it hasn't already been called.
     /// If it hasn't been called, chances are this function will return None as SimConnect needs
     /// time to process the data.
-    pub async fn get_latest_data<T: StructToSimConnect + Copy>(&mut self) -> AnyhowResult<T> {
+    pub async fn get_latest_data<T: SimConnectToStruct>(&mut self) -> AnyhowResult<T::ReturnType> {
         self.register_struct::<T>()?;
         let data_name = self.get_struct_name::<T>();
         let data_id = self.type_map.get(&data_name);
@@ -529,27 +484,27 @@ impl SimConnect {
             .get(data_id)
             .ok_or_else(|| anyhow!("data_event_map not expected to be empty"))?;
 
-        let mut data = recv.try_iter().map(|d| d.to_struct()).last();
+        let mut data = recv.try_iter().last();
         if let None = data {
-            data = Some(
-                recv.recv()
-                    .or_else(|_| {
-                        Err(anyhow!(
-                            "Thread has been closed and channel no longer available"
-                        ))
-                    })?
-                    .to_struct(),
-            )
+            data = Some(recv.recv().or_else(|_| {
+                Err(anyhow!(
+                    "Thread has been closed and channel no longer available"
+                ))
+            })?)
         }
-        let data = data.unwrap()?;
-        Ok(data)
+        let data = data.unwrap();
+        let s = unsafe { T::parse_struct(data.get_pointer()) }
+            .map_err(|_| anyhow!("Unable to parse struct"))?;
+        Ok(s)
     }
 
     #[cfg(not(feature = "async"))]
     /// Gets data on a sim object. Calls `register_struct` if it hasn't already been called.
     /// If it hasn't been called, chances are this function will return None as SimConnect needs
     /// time to process the data.
-    pub fn get_latest_data<T: StructToSimConnect + Copy>(&mut self) -> AnyhowResult<T> {
+    pub fn get_latest_data<T: SimConnectToStruct>(&mut self) -> AnyhowResult<T> {
+        use sim_connect_data::SimConnectToStruct;
+
         self.register_struct::<T>()?;
         let data_name = self.get_struct_name::<T>();
         let data_id = self.type_map.get(&data_name);
@@ -563,14 +518,10 @@ impl SimConnect {
             .ok_or_else(|| anyhow!("data_event_map not expected to be empty"))?;
 
         let mut data = recv.try_iter().map(|d| d.to_struct()).last();
-        if let None = data {
+        if data.is_none() {
             data = Some(
                 recv.recv()
-                    .or_else(|_| {
-                        Err(anyhow!(
-                            "Thread has been closed and channel no longer available"
-                        ))
-                    })?
+                    .map_err(|_| anyhow!("Thread has been closed and channel no longer available"))?
                     .to_struct(),
             )
         }

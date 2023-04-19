@@ -66,4 +66,7 @@ pub enum SimVar {
     LightLogoEnabled,
     #[string(name = "Light Wing")]
     LightWingEnabled,
+    Title,
+    #[string(name = "Vertical Speed")]
+    VerticalSpeed,
 }

@@ -11,6 +11,7 @@ use sim_connect_sys::bindings;
 
 use crate::sim_event_args::SimStateArgs;
 use crate::sim_events::{SystemEventData, SystemEventDataHolder};
+use crate::StructToSimConnect;
 
 pub trait FromPtr {
     fn from_pointer(data: NonNull<bindings::SIMCONNECT_RECV>) -> AnyhowResult<Self>
@@ -120,7 +121,7 @@ pub struct RecvSimData {
 }
 
 impl RecvSimData {
-    pub fn to_struct<T: Copy + Clone>(self) -> AnyhowResult<T> {
+    pub fn to_struct<T: StructToSimConnect>(self) -> AnyhowResult<T> {
         let locked = self.data_pointer.lock().unwrap();
         let ptr = unsafe { locked.as_ref() };
 
@@ -130,6 +131,15 @@ impl RecvSimData {
         let data = unsafe { data.as_ref().clone() };
 
         return Ok(data);
+    }
+
+    pub fn get_pointer(&self) -> NonNull<u32> {
+        let locked = self.data_pointer.lock().unwrap();
+        let ptr = unsafe { locked.as_ref() };
+
+        NonNull::new(std::ptr::addr_of!(ptr.dwData) as *mut u32)
+            .ok_or_else(|| anyhow!("Pointer not expected to be null"))
+            .unwrap()
     }
 
     pub fn get_id(&self) -> u32 {

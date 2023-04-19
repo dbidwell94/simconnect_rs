@@ -6,6 +6,13 @@ use super::internals::ToSimConnect;
 pub trait SimUnit: ToSimConnect {}
 
 #[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
+pub enum BaseUnit {
+    String,
+    String256,
+    String260,
+}
+
+#[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
 pub enum Length {
     Meter,
     Millimeter,
@@ -152,6 +159,15 @@ pub enum Pressure {
     BoostInHg,
     #[string(name = "boost cmHg")]
     BoostCmHg,
+}
+
+#[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
+pub enum Acceleration {
+    #[string(name = "meter per second squared")]
+    MPS,
+    #[string(name = "feet per second squared")]
+    FPS,
+    GForce,
 }
 
 pub struct FuelLevels {

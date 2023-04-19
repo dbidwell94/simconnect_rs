@@ -1,13 +1,14 @@
 use darling::{FromField, FromVariant};
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Fields};
+use syn::{parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Fields, Ident};
 
 #[derive(FromField)]
 #[darling(attributes(datum))]
 struct Opts {
     sim_var: syn::Path,
-    sim_unit: syn::Path,
+    sim_unit: Option<syn::Path>,
 }
 
 #[proc_macro_derive(StructToSimConnect, attributes(datum))]
@@ -30,9 +31,22 @@ pub fn derive(input: TokenStream) -> TokenStream {
             .sim_var
     });
     let sim_unit = fields.iter().map(|field| {
-        Opts::from_field(field)
+        let unit = Opts::from_field(field)
             .expect("All fields in a SimConnect struct need to contain a #[datum(..)] attribute")
-            .sim_unit
+            .sim_unit;
+
+        let to_return;
+        if let None = unit {
+            to_return = quote! {
+                None
+            }
+        } else {
+            let unit = unit.unwrap();
+            to_return = quote! {
+                Some(Box::new(#unit))
+            }
+        }
+        to_return
     });
     let data_type = fields.iter().map(|field| field.ty.clone());
 
@@ -47,7 +61,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                         sim_connect_rs::SimConnectDatum {
                             id: #id,
                             sim_var: #sim_var,
-                            sim_unit: Box::new(#sim_unit),
+                            sim_unit: #sim_unit,
                             data_type: #data_type::into_sim_var()
                         },
                     )*
@@ -187,6 +201,71 @@ pub fn enum_from_str(input: TokenStream) -> TokenStream {
                 }
 
                 Err(anyhow::anyhow!("Unable to serialize {s} to SystemEvent"))
+            }
+        }
+    };
+
+    to_return.into()
+}
+
+#[proc_macro_derive(SimConnectToStruct)]
+pub fn c_data_to_struct(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let ident = &input.ident;
+    let fields = match input.data {
+        Data::Struct(DataStruct { fields, .. }) => fields,
+        _ => panic!("Expected a struct with named fields"),
+    };
+    let field_ident = fields
+        .clone()
+        .into_iter()
+        .map(|f| f.ident.expect("Expected named fields"));
+
+    let mut previous_field: Option<(Ident, u32)> = None;
+    let mut converted_field_idents: Vec<Ident> = Vec::new();
+    let borrowed_vec = &mut converted_field_idents;
+
+    let converter: Vec<_> = fields.into_iter().map(move |f| {
+        let field_ident = f.ident.expect("Expected named fields");
+        let field_type = f.ty;
+        let converter_ident = Ident::new(&format!("{field_ident}"), Span::call_site());
+
+        borrowed_vec.push(converter_ident.clone());
+
+        let converter_pointer_ident =
+            Ident::new(&format!("{converter_ident}_pointer"), Span::call_site());
+
+        let to_return = if let Some((ref id, ref size)) = previous_field {
+
+            quote! {
+                let #converter_pointer_ident: *mut #field_type = std::mem::transmute(#id.add(#size));
+                let #converter_ident = *#converter_pointer_ident;
+            }
+        } else {
+            quote! {
+                let #converter_pointer_ident: *mut #field_type = std::mem::transmute(pointer);
+                let #converter_ident = *#converter_pointer_ident;
+            }
+        };
+        previous_field = Some((converter_pointer_ident.clone(), 1));
+        to_return
+    }).collect();
+
+    let to_return = quote! {
+        impl SimConnectToStruct for #ident {
+            type Error = ();
+            type ReturnType = #ident;
+
+            unsafe fn parse_struct(pointer: std::ptr::NonNull<u32>) -> Result<Self::ReturnType, Self::Error> {
+                let pointer = pointer.as_ptr();
+                # (
+                    #converter
+                )*
+                Ok(Self {
+                    #(
+                        #field_ident: #converted_field_idents,
+                    )*
+                })
             }
         }
     };
