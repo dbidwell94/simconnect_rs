@@ -1,16 +1,15 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use sim_connect_macros::{IterEnum, ToSimConnect, FromStr};
+use sim_connect_macros::{FromStr, IterEnum, ToSimConnect};
 use sim_connect_sys::bindings;
 use std::{
     ffi::{CStr, CString},
     mem::transmute,
-    str::FromStr,
 };
 
 use crate::{
+    internals::IterEnum,
     recv_data::FromPtr,
     sim_event_args::{SimObjectType, SimViewType},
-    internals::IterEnum,
 };
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +28,7 @@ use super::internals::ToSimConnect;
     Serialize,
     Deserialize,
     IterEnum,
-    FromStr
+    FromStr,
 )]
 #[repr(u32)]
 #[serde(rename = "camelCase")]
