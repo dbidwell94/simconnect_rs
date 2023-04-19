@@ -165,3 +165,31 @@ pub fn plain_enum_iter(input: TokenStream) -> TokenStream {
 
     to_return.into()
 }
+
+#[proc_macro_derive(FromStr)]
+pub fn enum_from_str(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let ident = &input.ident;
+
+    let to_return = quote! {
+        impl std::str::FromStr for #ident {
+            type Err = anyhow::Error;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                let self_iter = Self::iter_enum();
+                let lower_s = s.to_lowercase();
+
+                for item in self_iter {
+                    let lower_item = item.to_string().to_lowercase();
+                    if lower_s == lower_item {
+                        return Ok(item);
+                    }
+                }
+
+                Err(anyhow::anyhow!("Unable to serialize {s} to SystemEvent"))
+            }
+        }
+    };
+
+    to_return.into()
+}

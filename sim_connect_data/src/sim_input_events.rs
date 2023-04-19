@@ -1,51 +1,58 @@
-use crate::internals::ToSimConnect;
-use sim_connect_macros::{InputEvent, ToSimConnect};
+use crate::internals::{IterEnum, ToSimConnect};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+use sim_connect_macros::{FromStr, InputEvent, IterEnum, ToSimConnect};
 use std::ffi::CString;
 
-pub trait InputEvent {}
+pub trait InputEvent: ToSimConnect + std::str::FromStr + TryFromPrimitive + Into<u32> {}
 
-#[derive(ToSimConnect, Clone, Copy, InputEvent)]
+#[derive(
+    ToSimConnect, Clone, Copy, InputEvent, TryFromPrimitive, IntoPrimitive, IterEnum, FromStr,
+)]
+#[repr(u32)]
 pub enum GearAndBrakes {
     #[string(name = "ANTISKID_BRAKES_TOGGLE")]
-    AntiskidBrakeToggled,
+    AntiskidBrakeToggled = 0,
     #[string(name = "BRAKES")]
-    Brakes,
+    Brakes = 1,
     #[string(name = "BRAKES_LEFT")]
-    BrakesLeft,
+    BrakesLeft = 2,
     #[string(name = "BRAKES_RIGHT")]
-    BrakesRight,
+    BrakesRight = 3,
     #[string(name = "GEAR_DOWN")]
-    GearDown,
+    GearDown = 4,
     #[string(name = "GEAR_EMERGENCY_HANDLE_TOGGLE")]
-    GearEmergencyHandleToggled,
+    GearEmergencyHandleToggled = 5,
     #[string(name = "GEAR_PUMP")]
-    GearPump,
+    GearPump = 6,
     #[string(name = "GEAR_UP")]
-    GearUp,
+    GearUp = 7,
     #[string(name = "PARKING_BRAKES")]
-    ParkingBrakes,
+    ParkingBrakes = 8,
 }
 
-#[derive(Clone, Copy, ToSimConnect, InputEvent)]
+#[derive(
+    Clone, Copy, ToSimConnect, InputEvent, TryFromPrimitive, IntoPrimitive, IterEnum, FromStr,
+)]
+#[repr(u32)]
 pub enum Failures {
     #[string(name = "MASTER_CAUTION_ACKNOWLEDGE")]
-    MasterCautionAck,
+    MasterCautionAck = 9,
     #[string(name = "MASTER_CAUTION_OFF")]
-    MasterCautionOff,
+    MasterCautionOff = 10,
     #[string(name = "MASTER_CAUTION_ON")]
-    MasterCautionOn,
+    MasterCautionOn = 11,
     #[string(name = "MASTER_CAUTION_SET")]
-    MasterCautionSet,
+    MasterCautionSet = 12,
     #[string(name = "MASTER_CAUTION_TOGGLE")]
-    MasterCautionToggle,
+    MasterCautionToggle = 13,
     #[string(name = "MASTER_WARNING_ACKNOWLEDGE")]
-    MasterWarningAck,
+    MasterWarningAck = 14,
     #[string(name = "MASTER_WARNING_OFF")]
-    MasterWarningOff,
+    MasterWarningOff = 15,
     #[string(name = "MASTER_WARNING_ON")]
-    MasterWarningOn,
+    MasterWarningOn = 16,
     #[string(name = "MASTER_WARNING_SET")]
-    MasterWarningSet,
+    MasterWarningSet = 17,
     #[string(name = "MASTER_WARNING_TOGGLE")]
-    MasterWarningToggle,
+    MasterWarningToggle = 18,
 }

@@ -1,9 +1,9 @@
-use std::{mem::transmute, str::FromStr};
+use std::mem::transmute;
 
 use crate::internals::{IterEnum, ToSimConnect};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
-use sim_connect_macros::{IterEnum, ToSimConnect};
+use sim_connect_macros::{FromStr, IterEnum, ToSimConnect};
 use sim_connect_sys::bindings;
 use std::ffi::CString;
 
@@ -54,6 +54,7 @@ pub enum SimViewType {
     ToSimConnect,
     IntoPrimitive,
     IterEnum,
+    FromStr,
 )]
 #[repr(u32)]
 #[serde(rename = "camelCase")]
@@ -63,21 +64,4 @@ pub enum SimStateArgs {
     FlightLoaded,
     FlightPlan,
     Sim,
-}
-
-impl FromStr for SimStateArgs {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variants = Self::iter_enum();
-        let lower_str = s.to_lowercase();
-
-        for item in variants {
-            let lower_item = item.to_string().to_lowercase();
-            if lower_item == lower_str {
-                return Ok(item);
-            }
-        }
-        Err(anyhow::anyhow!("Unable to convert {s} into SimStateArgs"))
-    }
 }

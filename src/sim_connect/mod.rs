@@ -6,6 +6,7 @@ pub use sim_connect_data::ToSimConnect;
 use anyhow::{anyhow, Result as AnyhowResult};
 use sim_connect_data::{
     recv_data::RecvSystemState, sim_event_args::SimStateArgs, sim_events::SystemEventDataHolder,
+    sim_input_events::InputEvent,
 };
 #[cfg(feature = "derive")]
 pub use sim_connect_macros;
@@ -237,6 +238,37 @@ impl SimConnect {
         return self.get_client_data_name(struct_name);
     }
 
+    /// Can ONLY be called after a call to `register_struct` has been called.
+    /// Data will be found in the `check_events` function call.
+    ///
+    /// This function will return an error if the struct has not yet been registered
+    /// with SimConnect
+    fn request_data_on_self_object<T: StructToSimConnect + Copy>(&self) -> AnyhowResult<()> {
+        let type_name = std::any::type_name::<T>();
+        let data_name = self.get_client_data_name(&type_name);
+        let object_id = self
+            .type_map
+            .get(&data_name)
+            .ok_or_else(|| anyhow!("{type_name} has not yet been registered"))?;
+
+        {
+            let handle_lock = self.get_handle_lock()?;
+            let handle = *handle_lock;
+
+            check_hr!(unsafe {
+                bindings::SimConnect_RequestDataOnSimObjectType(
+                    handle.as_ptr(),
+                    0,
+                    object_id.clone(),
+                    0,
+                    bindings::SIMCONNECT_SIMOBJECT_TYPE_SIMCONNECT_SIMOBJECT_TYPE_USER,
+                )
+            });
+        }
+
+        Ok(())
+    }
+
     /// Opens a new connection to SimConnect using the program name defined
     /// Program will then automatically start listening for events, caching the latest
     /// of all the unique events. Events can be retrieved by requesting the latest.
@@ -358,37 +390,8 @@ impl SimConnect {
         Ok(())
     }
 
-    /// Can ONLY be called after a call to `register_struct` has been called.
-    /// Data will be found in the `check_events` function call.
-    ///
-    /// This function will return an error if the struct has not yet been registered
-    /// with SimConnect
-    fn request_data_on_self_object<T: StructToSimConnect + Copy>(&self) -> AnyhowResult<()> {
-        let type_name = std::any::type_name::<T>();
-        let data_name = self.get_client_data_name(&type_name);
-        let object_id = self
-            .type_map
-            .get(&data_name)
-            .ok_or_else(|| anyhow!("{type_name} has not yet been registered"))?;
-
-        {
-            let handle_lock = self.get_handle_lock()?;
-            let handle = *handle_lock;
-
-            check_hr!(unsafe {
-                bindings::SimConnect_RequestDataOnSimObjectType(
-                    handle.as_ptr(),
-                    0,
-                    object_id.clone(),
-                    0,
-                    bindings::SIMCONNECT_SIMOBJECT_TYPE_SIMCONNECT_SIMOBJECT_TYPE_USER,
-                )
-            });
-        }
-
-        Ok(())
-    }
-
+    /* #region request_system_state */
+    #[cfg(feature = "async")]
     /// Requests current information about the system state.
     pub async fn request_system_state(
         &mut self,
@@ -420,6 +423,41 @@ impl SimConnect {
         Ok(possible_found.unwrap())
     }
 
+    #[cfg(not(feature = "async"))]
+    /// Requests current information about the system state.
+    pub fn request_system_state(
+        &mut self,
+        state_request: SimStateArgs,
+    ) -> AnyhowResult<RecvSystemState> {
+        {
+            let handle = self.get_handle_lock()?;
+            let request_id: u32 = state_request.into();
+
+            check_hr!(unsafe {
+                bindings::SimConnect_RequestSystemState(
+                    handle.as_ptr(),
+                    request_id,
+                    state_request.sc_string().as_ptr(),
+                )
+            });
+        }
+
+        let possible_found = self.state_request_reciever.try_iter().last();
+        if let None = possible_found {
+            let data = self.state_request_reciever.recv().or_else(|_| {
+                Err(anyhow!(
+                    "Thread has been closed and channel no longer available"
+                ))
+            })?;
+            return Ok(data);
+        }
+
+        Ok(possible_found.unwrap())
+    }
+
+    /* #endregion */
+
+    /* #region system_event */
     /// Requests a subscription to a system event. Events can be checked by using the
     /// `check_events` function
     pub fn subscribe_to_system_event(
@@ -463,29 +501,21 @@ impl SimConnect {
         Ok(())
     }
 
-    /// Check weather or not SimConnect has data on a specified struct
-    pub fn has_data<T: StructToSimConnect + Copy>(&self) -> AnyhowResult<bool> {
-        let data_name = self.get_struct_name::<T>();
+    /* #endregion */
 
-        let data_id = self.type_map.get(&data_name);
-
-        if let None = data_id {
-            return Ok(false);
-        }
-        let data_id = data_id.unwrap();
-        if let Some(k) = self.data_event_map.get(data_id) {
-            if let Some(_) = k.try_iter().peekable().peek() {
-                return Ok(true);
-            }
-            return Ok(false);
-        }
-        Ok(false)
+    /* #region input_event */
+    /// Request subscription to an input event. Input events are located in the `sim_connect_rs::sim_connect_data::sim_input_events` package
+    pub fn subscribe_to_input_event(&mut self, input_event: impl InputEvent) -> AnyhowResult<()> {
+        let event = Box::new(input_event);
+        Ok(())
     }
+    /* #endregion */
 
+    /* #region get_latest_data */
     #[cfg(feature = "async")]
     /// Gets data on a sim object. Calls `register_struct` if it hasn't already been called.
     /// If it hasn't been called, chances are this function will return None as SimConnect needs
-    /// time to process the data. It is recommend that you check for data using the `has_data` call
+    /// time to process the data.
     pub async fn get_latest_data<T: StructToSimConnect + Copy>(&mut self) -> AnyhowResult<T> {
         self.register_struct::<T>()?;
         let data_name = self.get_struct_name::<T>();
@@ -518,7 +548,7 @@ impl SimConnect {
     #[cfg(not(feature = "async"))]
     /// Gets data on a sim object. Calls `register_struct` if it hasn't already been called.
     /// If it hasn't been called, chances are this function will return None as SimConnect needs
-    /// time to process the data. It is recommend that you check for data using the `has_data` call
+    /// time to process the data.
     pub fn get_latest_data<T: StructToSimConnect + Copy>(&mut self) -> AnyhowResult<T> {
         self.register_struct::<T>()?;
         let data_name = self.get_struct_name::<T>();
@@ -547,6 +577,8 @@ impl SimConnect {
         let data = data.unwrap()?;
         Ok(data)
     }
+
+    /* #endregion */
 }
 
 impl Drop for SimConnect {
