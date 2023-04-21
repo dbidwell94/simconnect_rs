@@ -503,8 +503,6 @@ impl SimConnect {
     /// If it hasn't been called, chances are this function will return None as SimConnect needs
     /// time to process the data.
     pub fn get_latest_data<T: SimConnectToStruct>(&mut self) -> AnyhowResult<T> {
-        use sim_connect_data::SimConnectToStruct;
-
         self.register_struct::<T>()?;
         let data_name = self.get_struct_name::<T>();
         let data_id = self.type_map.get(&data_name);
