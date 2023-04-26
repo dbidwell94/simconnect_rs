@@ -189,9 +189,9 @@ pub fn enum_from_str(input: TokenStream) -> TokenStream {
         impl std::str::FromStr for #ident {
             type Err = anyhow::Error;
 
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
+            fn from_str(input_str: &str) -> Result<Self, Self::Err> {
                 let self_iter = Self::iter_enum();
-                let lower_s = s.to_lowercase();
+                let lower_s = input_str.to_lowercase();
 
                 for item in self_iter {
                     let lower_item = item.to_string().to_lowercase();
@@ -200,7 +200,7 @@ pub fn enum_from_str(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                Err(anyhow::anyhow!("Unable to serialize {s} to SystemEvent"))
+                Err(anyhow::anyhow!("Unable to convert {0} into a string", input_str))
             }
         }
     };
