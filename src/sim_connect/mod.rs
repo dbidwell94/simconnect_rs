@@ -528,6 +528,36 @@ impl SimConnect {
     }
 
     /* #endregion */
+
+    /* #region set_data_on_object */
+
+    pub fn set_data_on_self<T: StructToSimConnect>(&mut self, data: T) -> AnyhowResult<()> {
+        self.register_struct::<T>()?;
+        let struct_name = self.get_struct_name::<T>();
+        let data_id = self.type_map.get(&struct_name);
+        let data_id = data_id.unwrap();
+        let data_ptr = Box::new(data);
+
+
+        {
+            let handle_lock = self.get_handle_lock()?;
+            let handle = *handle_lock;
+            check_hr!(unsafe {
+                sim_connect_sys::bindings::SimConnect_SetDataOnSimObject(
+                    handle.as_ptr(),
+                    *data_id,
+                    bindings::SIMCONNECT_OBJECT_ID_USER,
+                    bindings::SIMCONNECT_DATA_SET_FLAG_DEFAULT,
+                    0,
+                    std::mem::size_of::<T>() as u32,
+                    Box::into_raw(data_ptr) as *mut c_void,
+                )
+            });
+        }
+        Ok(())
+    }
+
+    /* #endregion */
 }
 
 impl Drop for SimConnect {

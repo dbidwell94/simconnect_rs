@@ -28,16 +28,35 @@ pub enum SimVar {
     SimOnGround,
     #[string(name = "Barometer Pressure")]
     BarometerPressure,
+
+    /* #region Fuel Systems */
     #[string(name = "Fuel Dump Active")]
     FuelDumpActive,
-    #[string(name = "Fuel Left Capacity")]
-    FuelLeftCapacity,
-    #[string(name = "Fuel Left Quantity")]
-    FuelLeftQuantity,
-    #[string(name = "Fuel Right Capacity")]
-    FuelRightCapacity,
-    #[string(name = "Fuel Right Quantity")]
-    FuelRightQuantity,
+
+    /* #region Fuel Tanks */
+    #[string(name = "FUEL TANK CENTER LEVEL")]
+    FuelTankCenterLevel,
+    #[string(name = "FUEL TANK CENTER2 LEVEL")]
+    FuelTankCenter2Level,
+    #[string(name = "FUEL TANK CENTER3 LEVEL")]
+    FuelTankCenter3Level,
+    #[string(name = "FUEL TANK EXTERNAL1 LEVEL")]
+    FuelTankExternal1Level,
+    #[string(name = "FUEL TANK EXTERNAL2 LEVEL")]
+    FuelTankExternal2Level,
+    #[string(name = "FUEL TANK LEFT AUX LEVEL")]
+    FuelTankLeftAuxLevel,
+    #[string(name = "FUEL TANK LEFT MAIN LEVEL")]
+    FuelTankLeftMainLevel,
+    #[string(name = "FUEL TANK LEFT TIP LEVEL")]
+    FuelTankLeftTipLevel,
+    #[string(name = "FUEL TANK RIGHT AUX LEVEL")]
+    FuelTankRightAuxLevel,
+    #[string(name = "FUEL TANK RIGHT MAIN LEVEL")]
+    FuelTankRightMainLevel,
+    #[string(name = "FUEL TANK RIGHT TIP LEVEL")]
+    FuelTankRightTipLevel,
+    /* #endregion */
     #[string(name = "Fuel Total Quantity")]
     FuelTotalQuantity,
     #[string(name = "Fuel Total Capacity")]
@@ -46,6 +65,8 @@ pub enum SimVar {
     FuelTotalQuantityWeight,
     #[string(name = "Unlimited Fuel")]
     IsUnlimitedFuelSet,
+
+    /* #endregion */
     #[string(name = "Autobrakes Active")]
     AutobrakesActive,
     #[string(name = "Antiskid Brakes Active")]
@@ -69,4 +90,6 @@ pub enum SimVar {
     Title,
     #[string(name = "Vertical Speed")]
     VerticalSpeed,
+    #[string(name = "ZULU TIME")]
+    ZuluTime,
 }

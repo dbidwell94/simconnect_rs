@@ -170,6 +170,20 @@ pub enum Acceleration {
     GForce,
 }
 
+#[derive(Hash, PartialEq, Eq, Debug, SimUnit, ToSimConnect)]
+pub enum Time {
+    #[string(name = "second")]
+    Second,
+    #[string(name = "minute")]
+    Minute,
+    #[string(name = "hour")]
+    Hour,
+    #[string(name = "day")]
+    Day,
+    #[string(name = "year")]
+    Year,
+}
+
 pub struct FuelLevels {
     pub center: f32,
     pub left_main: f32,
